@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using UnityEngine.Rendering.PostProcessing;
 using UnityStandardAssets.ImageEffects;
 using UnityEngine.SceneManagement;
@@ -170,7 +170,8 @@ namespace AmandsSense
                             if (!players.Contains(bodyPartCollider.Player.ProfileId))
                             {
                                 players.Add(bodyPartCollider.Player.ProfileId);
-                                Corpse corpse = bodyPartCollider.Player.GetComponent<Corpse>();
+                                Player player = bodyPartCollider.Player as Player;
+                                Corpse corpse = player.GetComponent<Corpse>();
                                 if (corpse != null)
                                 {
                                     GameObject SenseDeadbodyGameObject = new GameObject("SenseDeadbody");
