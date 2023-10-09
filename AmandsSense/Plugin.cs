@@ -1,4 +1,4 @@
-﻿
+
 using Aki.Common.Utils;
 using Aki.Reflection.Patching;
 using BepInEx;
@@ -17,7 +17,7 @@ using System.Threading.Tasks;
 
 namespace AmandsSense
 {
-    [BepInPlugin("com.Amanda.Sense", "Sense", "1.0.0")]
+    [BepInPlugin("com.Amanda.Sense", "Sense", "1.1.0")]
     public class AmandsSensePlugin : BaseUnityPlugin
     {
         public static GameObject Hook;
@@ -26,8 +26,13 @@ namespace AmandsSense
         public static ConfigEntry<bool> DoubleClick { get; set; }
         public static ConfigEntry<float> DoubleClickDelay { get; set; }
         public static ConfigEntry<bool> EnableSense { get; set; }
+        public static ConfigEntry<bool> SenseAlwaysOn { get; set; }
         public static ConfigEntry<float> Cooldown { get; set; }
         public static ConfigEntry<int> Radius { get; set; }
+        public static ConfigEntry<int> DeadbodyRadius { get; set; }
+        public static ConfigEntry<int> AlwaysOnRadius { get; set; }
+        public static ConfigEntry<int> AlwaysOnDeadbodyRadius { get; set; }
+        public static ConfigEntry<float> AlwaysOnFrequency { get; set; }
         public static ConfigEntry<float> MaxHeight { get; set; }
         public static ConfigEntry<float> MinHeight { get; set; }
         public static ConfigEntry<float> Speed { get; set; }
@@ -85,12 +90,14 @@ namespace AmandsSense
         public static ConfigEntry<Color> ElectronicKeysColor { get; set; }
         public static ConfigEntry<Color> MechanicalKeysColor { get; set; }
         public static ConfigEntry<Color> InfoItemsColor { get; set; }
+        public static ConfigEntry<Color> QuestItemsColor { get; set; }
         public static ConfigEntry<Color> SpecialEquipmentColor { get; set; }
         public static ConfigEntry<Color> MapsColor { get; set; }
         public static ConfigEntry<Color> MoneyColor { get; set; }
 
         public static ConfigEntry<Vector2> Size { get; set; }
         public static ConfigEntry<Vector2> NewSize { get; set; }
+        public static ConfigEntry<Vector2> AlwaysOnSize { get; set; }
         public static ConfigEntry<float> SizeClamp { get; set; }
         public static ConfigEntry<float> NormalSize { get; set; }
         public static ConfigEntry<float> Duration { get; set; }
@@ -119,6 +126,7 @@ namespace AmandsSense
         private void Start()
         {
             EnableSense = Config.Bind("AmandsSense", "EnableSense", true, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 690 }));
+            SenseAlwaysOn = Config.Bind("AmandsSense", "AlwaysOn", false, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 688 }));
             SenseKey = Config.Bind("AmandsSense", "SenseKey", new KeyboardShortcut(KeyCode.F), new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 370 }));
             DoubleClick = Config.Bind("AmandsSense", "DoubleClick", true, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 360 }));
             DoubleClickDelay = Config.Bind("AmandsSense", "DoubleClickDelay", 0.5f, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 350, IsAdvanced = true }));
@@ -126,6 +134,10 @@ namespace AmandsSense
             Speed = Config.Bind("AmandsSense", "Speed", 20f, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 330 }));
             Duration = Config.Bind("AmandsSense", "Duration", 10f, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 320 }));
             Radius = Config.Bind("AmandsSense", "Radius", 10, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 310 }));
+            DeadbodyRadius = Config.Bind("AmandsSense", "Deadbody Radius", 20, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 308 }));
+            AlwaysOnRadius = Config.Bind("AmandsSense", "AlwaysOnRadius", 20, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 306 }));
+            AlwaysOnDeadbodyRadius = Config.Bind("AmandsSense", "AlwaysOnDeadbody Radius", 20, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 304 }));
+            AlwaysOnFrequency = Config.Bind("AmandsSense", "AlwaysOn Frequency", 2f, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 302, IsAdvanced = true }));
             MaxHeight = Config.Bind("AmandsSense", "MaxHeight", 3f, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 300, IsAdvanced = true }));
             MinHeight = Config.Bind("AmandsSense", "MinHeight", -1f, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 290, IsAdvanced = true }));
             Limit = Config.Bind("AmandsSense", "Limit", 200, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 280, IsAdvanced = true }));
@@ -141,6 +153,7 @@ namespace AmandsSense
 
             Size = Config.Bind<Vector2>("AmandsSense", "Size", new Vector2(-0.07f, 0.07f), new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 200 }));
             NewSize = Config.Bind<Vector2>("AmandsSense", "NewSize", new Vector2(-0.15f, 0.15f), new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 190 }));
+            AlwaysOnSize = Config.Bind<Vector2>("AmandsSense", "AlwaysOnSize", new Vector2(-0.3f, 0.3f), new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 188 }));
             SizeClamp = Config.Bind<float>("AmandsSense", "SizeClamp", 4.0f, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 180, IsAdvanced = true }));
             NormalSize = Config.Bind<float>("AmandsSense", "NormalSize", 0.15f, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 170 }));
             StartOpacitySpeed = Config.Bind<float>("AmandsSense", "StartOpacitySpeed", 2f, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 160, IsAdvanced = true }));
@@ -212,6 +225,7 @@ namespace AmandsSense
             MechanicalKeysColor = Config.Bind("Colors", "MechanicalKeysColor", new Color(0.84f, 0.88f, 0.95f, 0.8f), new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 50 }));
 
             InfoItemsColor = Config.Bind("Colors", "InfoItemsColor", new Color(0.84f, 0.88f, 0.95f, 0.8f), new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 40 }));
+            QuestItemsColor = Config.Bind("Colors", "QuestItemsColor", new Color(1.0f, 1.0f, 0.01f, 0.8f), new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 38 }));
             SpecialEquipmentColor = Config.Bind("Colors", "SpecialEquipmentColor", new Color(0.84f, 0.88f, 0.95f, 0.8f), new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 30 }));
             MapsColor = Config.Bind("Colors", "MapsColor", new Color(0.84f, 0.88f, 0.95f, 0.8f), new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 20 }));
             MoneyColor = Config.Bind("Colors", "MoneyColor", new Color(0.84f, 0.88f, 0.95f, 0.8f), new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 10 }));
@@ -234,6 +248,10 @@ namespace AmandsSense
             {
                 AmandsSenseClass.localPlayer = localPlayer;
                 AmandsSenseClass.ItemsSenses.Clear();
+                AmandsSenseClass.ItemsAlwaysOn.Clear();
+                AmandsSenseClass.ContainersAlwaysOn.Clear();
+                AmandsSenseClass.DeadbodyAlwaysOn.Clear();
+                AmandsSensePlugin.AmandsSenseClassComponent.DynamicAlwaysOnSense();
             }
         }
     }
