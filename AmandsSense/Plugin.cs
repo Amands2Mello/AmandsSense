@@ -1,44 +1,69 @@
 
-using Aki.Common.Utils;
 using Aki.Reflection.Patching;
 using BepInEx;
 using BepInEx.Configuration;
-using System;
-using System.IO;
 using System.Reflection;
-using System.Linq;
 using UnityEngine;
-using UnityEngine.Rendering.PostProcessing;
-using EFT.CameraControl;
-using EFT.InventoryLogic;
 using HarmonyLib;
 using EFT;
 using System.Threading.Tasks;
+using EFT.Interactive;
 
 namespace AmandsSense
 {
-    [BepInPlugin("com.Amanda.Sense", "Sense", "1.1.0")]
+    [BepInPlugin("com.Amanda.Sense", "Sense", "2.0.0")]
     public class AmandsSensePlugin : BaseUnityPlugin
     {
         public static GameObject Hook;
         public static AmandsSenseClass AmandsSenseClassComponent;
+        public static ConfigEntry<EEnableSense> EnableSense { get; set; }
+        public static ConfigEntry<bool> EnableExfilSense { get; set; }
+        public static ConfigEntry<bool> SenseAlwaysOn { get; set; }
+
         public static ConfigEntry<KeyboardShortcut> SenseKey { get; set; }
         public static ConfigEntry<bool> DoubleClick { get; set; }
-        public static ConfigEntry<float> DoubleClickDelay { get; set; }
-        public static ConfigEntry<bool> EnableSense { get; set; }
-        public static ConfigEntry<bool> SenseAlwaysOn { get; set; }
         public static ConfigEntry<float> Cooldown { get; set; }
+
+        public static ConfigEntry<float> Duration { get; set; }
+        public static ConfigEntry<float> ExfilDuration { get; set; }
         public static ConfigEntry<int> Radius { get; set; }
-        public static ConfigEntry<int> DeadbodyRadius { get; set; }
-        public static ConfigEntry<int> AlwaysOnRadius { get; set; }
-        public static ConfigEntry<int> AlwaysOnDeadbodyRadius { get; set; }
-        public static ConfigEntry<float> AlwaysOnFrequency { get; set; }
+        public static ConfigEntry<int> DeadPlayerRadius { get; set; }
+        public static ConfigEntry<float> Speed { get; set; }
         public static ConfigEntry<float> MaxHeight { get; set; }
         public static ConfigEntry<float> MinHeight { get; set; }
-        public static ConfigEntry<float> Speed { get; set; }
-        public static ConfigEntry<int> Limit { get; set; }
-        public static ConfigEntry<bool> NonFleaAmmo { get; set; }
 
+        public static ConfigEntry<bool> EnableFlea { get; set; }
+        public static ConfigEntry<bool> FleaIncludeAmmo { get; set; }
+
+        public static ConfigEntry<bool> UseBackgroundColor { get; set; }
+
+        public static ConfigEntry<float> Size { get; set; }
+        public static ConfigEntry<float> SizeClamp { get; set; }
+
+        public static ConfigEntry<float> VerticalOffset { get; set; }
+        public static ConfigEntry<float> ExfilVerticalOffset { get; set; }
+
+        public static ConfigEntry<float> IntensitySpeed { get; set; }
+
+        public static ConfigEntry<float> AlwaysOnFrequency { get; set; }
+
+        public static ConfigEntry<float> LightIntensity { get; set; }
+        public static ConfigEntry<float> LightRange { get; set; }
+        public static ConfigEntry<bool> LightShadows { get; set; }
+
+        public static ConfigEntry<float> ExfilLightIntensity { get; set; }
+        public static ConfigEntry<float> ExfilLightRange { get; set; }
+        public static ConfigEntry<bool> ExfilLightShadows { get; set; }
+
+        public static ConfigEntry<float> AudioDistance { get; set; }
+        public static ConfigEntry<int> AudioRolloff { get; set; }
+        public static ConfigEntry<float> AudioVolume { get; set; }
+
+        public static ConfigEntry<bool> useDof { get; set; }
+
+        public static ConfigEntry<Color> ExfilColor { get; set; }
+        public static ConfigEntry<Color> ExfilUnmetColor { get; set; }
+        public static ConfigEntry<Color> TextColor { get; set; }
         public static ConfigEntry<Color> RareItemsColor { get; set; }
         public static ConfigEntry<Color> WishListItemsColor { get; set; }
         public static ConfigEntry<Color> NonFleaItemsColor { get; set; }
@@ -95,76 +120,64 @@ namespace AmandsSense
         public static ConfigEntry<Color> MapsColor { get; set; }
         public static ConfigEntry<Color> MoneyColor { get; set; }
 
-        public static ConfigEntry<Vector2> Size { get; set; }
-        public static ConfigEntry<Vector2> NewSize { get; set; }
-        public static ConfigEntry<Vector2> AlwaysOnSize { get; set; }
-        public static ConfigEntry<float> SizeClamp { get; set; }
-        public static ConfigEntry<float> NormalSize { get; set; }
-        public static ConfigEntry<float> Duration { get; set; }
-        public static ConfigEntry<float> OpacitySpeed { get; set; }
-        public static ConfigEntry<float> StartOpacitySpeed { get; set; }
-        public static ConfigEntry<float> LightIntensity { get; set; }
-        public static ConfigEntry<float> LightRange { get; set; }
-        public static ConfigEntry<float> AudioDistance { get; set; }
-        public static ConfigEntry<int> AudioRolloff { get; set; }
-        public static ConfigEntry<float> AudioVolume { get; set; }
-
-        public static ConfigEntry<bool> useDof { get; set; }
-        public static ConfigEntry<bool> dofForceEnableMedian { get; set; }
-        public static ConfigEntry<float> dofBokehFactor { get; set; }
-        public static ConfigEntry<float> dofFocusDistance { get; set; }
-        public static ConfigEntry<float> dofRadius { get; set; }
-        public static ConfigEntry<float> dofRadiusEndSpeed { get; set; }
-        public static ConfigEntry<float> dofRadiusStartSpeed { get; set; }
         private void Awake()
         {
             Debug.LogError("Sense Awake()");
-            Hook = new GameObject();
+            Hook = new GameObject("AmandsSense");
             AmandsSenseClassComponent = Hook.AddComponent<AmandsSenseClass>();
             DontDestroyOnLoad(Hook);
         }
         private void Start()
         {
-            EnableSense = Config.Bind("AmandsSense", "EnableSense", true, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 690 }));
-            SenseAlwaysOn = Config.Bind("AmandsSense", "AlwaysOn", false, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 688 }));
-            SenseKey = Config.Bind("AmandsSense", "SenseKey", new KeyboardShortcut(KeyCode.F), new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 370 }));
-            DoubleClick = Config.Bind("AmandsSense", "DoubleClick", true, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 360 }));
-            DoubleClickDelay = Config.Bind("AmandsSense", "DoubleClickDelay", 0.5f, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 350, IsAdvanced = true }));
-            Cooldown = Config.Bind("AmandsSense", "Cooldown", 2f, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 340 }));
-            Speed = Config.Bind("AmandsSense", "Speed", 20f, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 330 }));
+            EnableSense = Config.Bind("AmandsSense", "EnableSense", EEnableSense.OnText, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 380 }));
+            EnableExfilSense = Config.Bind("AmandsSense", "EnableExfilSense", true, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 370 }));
+            SenseAlwaysOn = Config.Bind("AmandsSense", "AlwaysOn", false, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 360 }));
+
+            SenseKey = Config.Bind("AmandsSense", "SenseKey", new KeyboardShortcut(KeyCode.F), new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 350 }));
+            DoubleClick = Config.Bind("AmandsSense", "DoubleClick", true, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 340, IsAdvanced = true }));
+            Cooldown = Config.Bind("AmandsSense", "Cooldown", 2f, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 330, IsAdvanced = true }));
+
             Duration = Config.Bind("AmandsSense", "Duration", 10f, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 320 }));
+            ExfilDuration = Config.Bind("AmandsSense", "Exfil Duration", 30f, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 320 }));
             Radius = Config.Bind("AmandsSense", "Radius", 10, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 310 }));
-            DeadbodyRadius = Config.Bind("AmandsSense", "Deadbody Radius", 20, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 308 }));
-            AlwaysOnRadius = Config.Bind("AmandsSense", "AlwaysOnRadius", 20, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 306 }));
-            AlwaysOnDeadbodyRadius = Config.Bind("AmandsSense", "AlwaysOnDeadbody Radius", 20, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 304 }));
-            AlwaysOnFrequency = Config.Bind("AmandsSense", "AlwaysOn Frequency", 2f, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 302, IsAdvanced = true }));
-            MaxHeight = Config.Bind("AmandsSense", "MaxHeight", 3f, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 300, IsAdvanced = true }));
-            MinHeight = Config.Bind("AmandsSense", "MinHeight", -1f, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 290, IsAdvanced = true }));
-            Limit = Config.Bind("AmandsSense", "Limit", 200, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 280, IsAdvanced = true }));
-            NonFleaAmmo = Config.Bind("AmandsSense", "NonFleaAmmo", true, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 278, IsAdvanced = true }));
+            DeadPlayerRadius = Config.Bind("AmandsSense", "DeadPlayerRadius", 20, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 310 }));
+            Speed = Config.Bind("AmandsSense", "Speed", 20f, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 300 }));
+            MaxHeight = Config.Bind("AmandsSense", "MaxHeight", 3f, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 290, IsAdvanced = true }));
+            MinHeight = Config.Bind("AmandsSense", "MinHeight", -1f, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 280, IsAdvanced = true }));
 
-            useDof = Config.Bind("AmandsSense", "useDof", true, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 270 }));
-            dofForceEnableMedian = Config.Bind("AmandsSense", "dofForceEnableMedian", false, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 260, IsAdvanced = true }));
-            dofBokehFactor = Config.Bind("AmandsSense", "dofBokehFactor", 157f, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 250, IsAdvanced = true }));
-            dofFocusDistance = Config.Bind("AmandsSense", "dofFocusDistance", 2f, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 240, IsAdvanced = true }));
-            dofRadius = Config.Bind("AmandsSense", "dofRadius", 0.5f, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 230 }));
-            dofRadiusEndSpeed = Config.Bind("AmandsSense", "dofRadiusEndSpeed", 0.5f, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 220, IsAdvanced = true }));
-            dofRadiusStartSpeed = Config.Bind("AmandsSense", "dofRadiusStartSpeed", 2f, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 210, IsAdvanced = true }));
+            EnableFlea = Config.Bind("AmandsSense", "Enable Flea", true, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 270 }));
+            FleaIncludeAmmo = Config.Bind("AmandsSense", "Flea Include Ammo", false, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 260 }));
 
-            Size = Config.Bind<Vector2>("AmandsSense", "Size", new Vector2(-0.07f, 0.07f), new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 200 }));
-            NewSize = Config.Bind<Vector2>("AmandsSense", "NewSize", new Vector2(-0.15f, 0.15f), new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 190 }));
-            AlwaysOnSize = Config.Bind<Vector2>("AmandsSense", "AlwaysOnSize", new Vector2(-0.3f, 0.3f), new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 188 }));
-            SizeClamp = Config.Bind<float>("AmandsSense", "SizeClamp", 4.0f, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 180, IsAdvanced = true }));
-            NormalSize = Config.Bind<float>("AmandsSense", "NormalSize", 0.15f, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 170 }));
-            StartOpacitySpeed = Config.Bind<float>("AmandsSense", "StartOpacitySpeed", 2f, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 160, IsAdvanced = true }));
-            OpacitySpeed = Config.Bind<float>("AmandsSense", "OpacitySpeed", 2f, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 150, IsAdvanced = true }));
+            UseBackgroundColor = Config.Bind("AmandsSense", "Use Background Color", false, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 250 }));
 
-            LightIntensity = Config.Bind<float>("AmandsSense", "LightIntensity", 0.3f, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 140 }));
-            LightRange = Config.Bind<float>("AmandsSense", "LightRange", 5f, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 130 }));
+            Size = Config.Bind("AmandsSense", "Size", 0.5f, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 240 }));
+            SizeClamp = Config.Bind("AmandsSense", "Size Clamp", 3.0f, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 230, IsAdvanced = true }));
 
-            AudioDistance = Config.Bind<float>("AmandsSense", "AudioDistance", 99f, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 120 }));
-            AudioRolloff = Config.Bind<int>("AmandsSense", "AudioRolloff", 100, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 110 }));
-            AudioVolume = Config.Bind<float>("AmandsSense", "AudioVolume", 0.5f, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 100 }));
+            VerticalOffset = Config.Bind("AmandsSense", "Vertical Offset", 0.22f, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 220, IsAdvanced = true }));
+            ExfilVerticalOffset = Config.Bind("AmandsSense", "ExfilVertical Offset", 40f, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 215, IsAdvanced = true }));
+
+            IntensitySpeed = Config.Bind("AmandsSense", "Intensity Speed", 2f, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 210, IsAdvanced = true }));
+
+            AlwaysOnFrequency = Config.Bind("AmandsSense", "AlwaysOn Frequency", 2f, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 200, IsAdvanced = true }));
+
+            LightIntensity = Config.Bind("AmandsSense", "LightIntensity", 0.6f, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 190 }));
+            LightRange = Config.Bind("AmandsSense", "LightRange", 2.5f, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 180 }));
+            LightShadows = Config.Bind("AmandsSense", "LightShadows", false, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 170, IsAdvanced = true }));
+
+            ExfilLightIntensity = Config.Bind("AmandsSense", "Exfil LightIntensity", 1.0f, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 160 }));
+            ExfilLightRange = Config.Bind("AmandsSense", "Exfil LightRange", 50f, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 150 }));
+            ExfilLightShadows = Config.Bind("AmandsSense", "Exfil LightShadows", true, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 140 }));
+
+            AudioDistance = Config.Bind("AmandsSense", "AudioDistance", 99f, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 130, IsAdvanced = true }));
+            AudioRolloff = Config.Bind("AmandsSense", "AudioRolloff", 100, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 120, IsAdvanced = true }));
+            AudioVolume = Config.Bind("AmandsSense", "AudioVolume", 0.5f, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 110 }));
+
+            useDof = Config.Bind("AmandsSense Effects", "useDof", true, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 100 }));
+
+            ExfilColor = Config.Bind("Colors", "ExfilColor", new Color(0.01f, 1.0f, 0.01f, 1.0f), new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 570 }));
+            ExfilUnmetColor = Config.Bind("Colors", "ExfilUnmetColor", new Color(1.0f, 0.01f, 0.01f, 1.0f), new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 560 }));
+
+            TextColor = Config.Bind("Colors", "TextColor", new Color(0.84f, 0.88f, 0.95f, 1.0f), new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 550 }));
 
             RareItemsColor = Config.Bind("Colors", "RareItemsColor", new Color(1.0f, 0.01f, 0.01f, 0.8f), new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 540 }));
             WishListItemsColor = Config.Bind("Colors", "WishListItemsColor", new Color(1.0f, 0.01f, 0.2f, 0.8f), new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 530 }));
@@ -231,7 +244,11 @@ namespace AmandsSense
             MoneyColor = Config.Bind("Colors", "MoneyColor", new Color(0.84f, 0.88f, 0.95f, 0.8f), new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 10 }));
 
             new AmandsLocalPlayerPatch().Enable();
+            new AmandsKillPatch().Enable();
+            new AmandsSenseExfiltrationPatch().Enable();
             new AmandsSensePrismEffectsPatch().Enable();
+
+            AmandsSenseHelper.Init();
         }
     }
     public class AmandsLocalPlayerPatch : ModulePatch
@@ -247,11 +264,8 @@ namespace AmandsSense
             if (localPlayer != null && localPlayer.IsYourPlayer)
             {
                 AmandsSenseClass.localPlayer = localPlayer;
-                AmandsSenseClass.ItemsSenses.Clear();
-                AmandsSenseClass.ItemsAlwaysOn.Clear();
-                AmandsSenseClass.ContainersAlwaysOn.Clear();
-                AmandsSenseClass.DeadbodyAlwaysOn.Clear();
-                AmandsSensePlugin.AmandsSenseClassComponent.DynamicAlwaysOnSense();
+                AmandsSenseClass.inventoryControllerClass = Traverse.Create(localPlayer).Field("_inventoryController").GetValue<InventoryControllerClass>();
+                AmandsSenseClass.Clear();
             }
         }
     }
@@ -259,7 +273,7 @@ namespace AmandsSense
     {
         protected override MethodBase GetTargetMethod()
         {
-            return typeof(PrismEffects).GetMethod("OnEnable", BindingFlags.Instance | BindingFlags.NonPublic);
+            return typeof(PrismEffects).GetMethod("OnEnable", BindingFlags.Instance | BindingFlags.Public);
         }
         [PatchPostfix]
         private static void PatchPostFix(ref PrismEffects __instance)
@@ -267,7 +281,42 @@ namespace AmandsSense
             if (__instance.gameObject.name == "FPS Camera")
             {
                 AmandsSenseClass.prismEffects = __instance;
+                __instance.debugDofPass = false;
+                __instance.dofForceEnableMedian = false;
+                __instance.dofBokehFactor = 157f;
+                __instance.dofFocusDistance = 2f;
+                __instance.dofNearFocusDistance = 100f;
+                __instance.dofRadius = 0f;
             }
+        }
+    }
+    public class AmandsKillPatch : ModulePatch
+    {
+        protected override MethodBase GetTargetMethod()
+        {
+            return typeof(Player).GetMethod("OnBeenKilledByAggressor", BindingFlags.Instance | BindingFlags.Public);
+        }
+        [PatchPostfix]
+        private static void PatchPostFix(ref Player __instance, Player aggressor, DamageInfo damageInfo, EBodyPart bodyPart, EDamageType lethalDamageType)
+        {
+            AmandsSenseClass.DeadPlayers.Add(new SenseDeadPlayerStruct(__instance, aggressor));
+        }
+    }
+    public class AmandsSenseExfiltrationPatch : ModulePatch
+    {
+        protected override MethodBase GetTargetMethod()
+        {
+            return typeof(ExfiltrationPoint).GetMethod("Awake", BindingFlags.Instance | BindingFlags.Public);
+        }
+        [PatchPostfix]
+        private static void PatchPostFix(ref ExfiltrationPoint __instance)
+        {
+            GameObject amandsSenseExfiltrationGameObject = new GameObject("SenseExfil");
+            AmandsSenseExfil amandsSenseExfil = amandsSenseExfiltrationGameObject.AddComponent<AmandsSenseExfil>();
+            amandsSenseExfil.SetSense(__instance);
+            amandsSenseExfil.Construct();
+            amandsSenseExfil.ShowSense();
+            AmandsSenseClass.SenseExfils.Add(amandsSenseExfil);
         }
     }
 }
