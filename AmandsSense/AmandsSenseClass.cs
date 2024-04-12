@@ -1,16 +1,9 @@
 using UnityEngine;
-using UnityEngine.Rendering.PostProcessing;
-using UnityStandardAssets.ImageEffects;
-using UnityEngine.SceneManagement;
 using System;
-using EFT.Weather;
 using System.Collections.Generic;
-using BSG.CameraEffects;
 using HarmonyLib;
-using UnityEngine.Rendering;
 using EFT;
 using EFT.InventoryLogic;
-using System.Reflection;
 using EFT.UI;
 using Comfort.Common;
 using System.IO;
@@ -20,32 +13,21 @@ using EFT.Interactive;
 using System.Linq;
 using Aki.Common.Utils;
 using Sirenix.Utilities;
+using UnityEngine.UI;
+using TMPro;
 
 namespace AmandsSense
 {
     public class AmandsSenseClass : MonoBehaviour
     {
         public static LocalPlayer localPlayer;
+        public static InventoryControllerClass inventoryControllerClass;
 
         public static LayerMask SphereInteractiveLayerMask = LayerMask.GetMask("Interactive");
         public static LayerMask SphereDeadbodyLayerMask = LayerMask.GetMask("Deadbody");
 
-        public static Dictionary<string, Sprite> LoadedSprites = new Dictionary<string, Sprite>();
-        public static Dictionary<string, AudioClip> LoadedAudioClips = new Dictionary<string, AudioClip>();
-
-        public static List<string> ItemsSenses = new List<string>();
-        public static List<AmandsSenseAlwaysOn> ItemsAlwaysOn = new List<AmandsSenseAlwaysOn>();
-        public static List<AmandsSenseContainerAlwaysOn> ContainersAlwaysOn = new List<AmandsSenseContainerAlwaysOn>();
-        public static List<AmandsSenseDeadbodyAlwaysOn> DeadbodyAlwaysOn = new List<AmandsSenseDeadbodyAlwaysOn>();
-
         public static float CooldownTime = 0f;
-
-        public delegate void ItemsSensesAdded(string Id, string TemplateId, bool CanSellOnRagfair, Vector3 position, ESenseItemType SenseItemType);
-        public static ItemsSensesAdded onItemsSensesAdded;
-        public delegate void ItemsSensesRemove(string Id);
-        public static ItemsSensesRemove onItemsSensesRemove;
-        public delegate void ContainerSensesAdded(string Id, Vector3 position);
-        public static ContainerSensesAdded onContainerSensesAdded;
+        public static float AlwaysOnTime = 0f;
         public static float Radius = 0f;
 
         public static PrismEffects prismEffects;
@@ -54,29 +36,71 @@ namespace AmandsSense
 
         public static float lastDoubleClickTime = 0.0f;
 
-        public static bool ValidSenseAlwaysOn = false;
+        public static Dictionary<string, Sprite> LoadedSprites = new Dictionary<string, Sprite>();
+        public static Dictionary<string, AudioClip> LoadedAudioClips = new Dictionary<string, AudioClip>();
 
+        public static Vector3[] SenseOverlapLocations = new Vector3[9] { Vector3.zero, Vector3.forward, Vector3.back, Vector3.left, Vector3.right, Vector3.forward + Vector3.left, Vector3.forward + Vector3.right, Vector3.back + Vector3.left, Vector3.back + Vector3.right };
+        public static int CurrentOverlapLocation = 9;
+
+        public static LayerMask BoxInteractiveLayerMask = LayerMask.GetMask("Interactive");
+        public static LayerMask BoxDeadbodyLayerMask = LayerMask.GetMask("Deadbody");
+        public static int[] CurrentOverlapCount = new int[9];
+        public static Collider[] CurrentOverlapLoctionColliders = new Collider[100];
+
+        public static Dictionary<int, AmandsSenseWorld> SenseWorlds = new Dictionary<int, AmandsSenseWorld>();
+
+        public static List<SenseDeadPlayerStruct> DeadPlayers = new List<SenseDeadPlayerStruct>();
+
+        public static List<AmandsSenseExfil> SenseExfils = new List<AmandsSenseExfil>();
+        public static AmandsSenseExfil ClosestAmandsSenseExfil = null;
+
+
+        public void OnGUI()
+        {
+            /*GUILayout.BeginArea(new Rect(20, 10, 1280, 720));
+            GUILayout.Label("SenseWorlds " + SenseWorlds.Count().ToString());
+            GUILayout.EndArea();*/
+        }
         public void Start()
         {
             itemsJsonClass = ReadFromJsonFile<ItemsJsonClass>((AppDomain.CurrentDomain.BaseDirectory + "/BepInEx/plugins/Sense/Items.json"));
             ReloadFiles();
-            onItemsSensesAdded += ItemsSensesAddedMethod;
-            onItemsSensesRemove += ItemsSensesRemoveMethod;
-            onContainerSensesAdded += ContainerSensesAddedMethod;
-        }
-        public void ItemsSensesAddedMethod(string Id, string TemplateId, bool CanSellOnRagfair, Vector3 position, ESenseItemType SenseItemType)
-        {
-        }
-        public void ItemsSensesRemoveMethod(string Id)
-        {
-        }
-        public void ContainerSensesAddedMethod(string Id, Vector3 position)
-        {
         }
         public void Update()
         {
-            if (localPlayer != null && AmandsSensePlugin.EnableSense.Value)
+            if (gameObject != null && localPlayer != null && AmandsSensePlugin.EnableSense.Value != EEnableSense.Off)
             {
+                if (CurrentOverlapLocation <= 8)
+                {
+                    int CurrentOverlapCountTest = Physics.OverlapBoxNonAlloc(localPlayer.Position + (Vector3)(SenseOverlapLocations[CurrentOverlapLocation] * ((AmandsSensePlugin.Radius.Value * 2f) / 3f)), (Vector3.one * ((AmandsSensePlugin.Radius.Value * 2f) / 3f)), CurrentOverlapLoctionColliders, Quaternion.Euler(0f, 0f, 0f), BoxInteractiveLayerMask, QueryTriggerInteraction.Collide);
+                    for (int i = 0; i < CurrentOverlapCountTest; i++)
+                    {
+                        if (!SenseWorlds.ContainsKey(CurrentOverlapLoctionColliders[i].GetInstanceID()))
+                        {
+                            GameObject SenseWorldGameObject = new GameObject("SenseWorld");
+                            AmandsSenseWorld amandsSenseWorld = SenseWorldGameObject.AddComponent<AmandsSenseWorld>();
+                            amandsSenseWorld.SenseCollider = CurrentOverlapLoctionColliders[i];
+                            amandsSenseWorld.Id = amandsSenseWorld.SenseCollider.GetInstanceID();
+                            amandsSenseWorld.Delay = Vector3.Distance(localPlayer.Position, amandsSenseWorld.SenseCollider.transform.position) / AmandsSensePlugin.Speed.Value;
+                            SenseWorlds.Add(amandsSenseWorld.Id, amandsSenseWorld);
+                        }
+                        else
+                        {
+                            SenseWorlds[CurrentOverlapLoctionColliders[i].GetInstanceID()].RestartSense();
+                        }
+                    }
+                    CurrentOverlapLocation++;
+                }
+                else if (AmandsSensePlugin.SenseAlwaysOn.Value)
+                {
+                    AlwaysOnTime += Time.deltaTime;
+                    if (AlwaysOnTime > AmandsSensePlugin.AlwaysOnFrequency.Value)
+                    {
+                        AlwaysOnTime = 0f;
+                        CurrentOverlapLocation = 0;
+                        SenseDeadBodies();
+                    }
+                }
                 if (CooldownTime < AmandsSensePlugin.Cooldown.Value)
                 {
                     CooldownTime += Time.deltaTime;
@@ -87,34 +111,50 @@ namespace AmandsSense
                     {
                         float timeSinceLastClick = Time.time - lastDoubleClickTime;
                         lastDoubleClickTime = Time.time;
-                        if (timeSinceLastClick <= AmandsSensePlugin.DoubleClickDelay.Value && CooldownTime >= AmandsSensePlugin.Cooldown.Value)
+                        if (timeSinceLastClick <= 0.5f && CooldownTime >= AmandsSensePlugin.Cooldown.Value)
                         {
-                            Sense();
+                            CooldownTime = 0f;
+                            CurrentOverlapLocation = 0;
+                            SenseDeadBodies();
+                            ShowSenseExfils();
+                            if (prismEffects != null)
+                            {
+                                Radius = 0;
+                                prismEffects.useDof = AmandsSensePlugin.useDof.Value;
+                            }
                         }
                     }
                     else
                     {
                         if (CooldownTime >= AmandsSensePlugin.Cooldown.Value)
                         {
-                            Sense();
+                            CooldownTime = 0f;
+                            CurrentOverlapLocation = 0;
+                            SenseDeadBodies();
+                            ShowSenseExfils();
+                            if (prismEffects != null)
+                            {
+                                Radius = 0;
+                                prismEffects.useDof = AmandsSensePlugin.useDof.Value;
+                            }
                         }
                     }
                 }
-                if (Radius < Mathf.Max(AmandsSensePlugin.Radius.Value, AmandsSensePlugin.DeadbodyRadius.Value))
+                if (Radius < Mathf.Max(AmandsSensePlugin.Radius.Value, AmandsSensePlugin.DeadPlayerRadius.Value))
                 {
                     Radius += AmandsSensePlugin.Speed.Value * Time.deltaTime;
                     if (prismEffects != null)
                     {
                         prismEffects.dofFocusPoint = Radius - prismEffects.dofFocusDistance;
-                        if (prismEffects.dofRadius < AmandsSensePlugin.dofRadius.Value)
+                        if (prismEffects.dofRadius < 0.5f)
                         {
-                            prismEffects.dofRadius += AmandsSensePlugin.dofRadiusStartSpeed.Value * Time.deltaTime;
+                            prismEffects.dofRadius += 2f * Time.deltaTime;
                         }
                     }
                 }
                 else if (prismEffects != null && prismEffects.dofRadius > 0.001f)
                 {
-                    prismEffects.dofRadius -= AmandsSensePlugin.dofRadiusEndSpeed.Value * Time.deltaTime;
+                    prismEffects.dofRadius -= 0.5f * Time.deltaTime;
                     if (prismEffects.dofRadius < 0.001f)
                     {
                         prismEffects.useDof = false;
@@ -122,285 +162,66 @@ namespace AmandsSense
                 }
             }
         }
-        public void Sense()
+        public void SenseDeadBodies()
         {
-            if (gameObject != null)
+            foreach (SenseDeadPlayerStruct deadPlayer in DeadPlayers)
             {
-                if (localPlayer != null)
+                if ((Vector3.Distance(localPlayer.Position, deadPlayer.victim.Position)) < AmandsSensePlugin.DeadPlayerRadius.Value)
                 {
-                    CooldownTime = 0;
-                    Collider[] colliders = new Collider[AmandsSensePlugin.Limit.Value];
-                    int colliderCount = Physics.OverlapSphereNonAlloc(localPlayer.Position, AmandsSensePlugin.Radius.Value, colliders, SphereInteractiveLayerMask, QueryTriggerInteraction.Collide);
-                    for (int i = 0; i < colliderCount; i++)
+                    if (!SenseWorlds.ContainsKey(deadPlayer.victim.GetInstanceID()))
                     {
-                        Component component = colliders[i].transform.gameObject.GetComponent<ObservedLootItem>();
-                        if (component != null)
-                        {
-                            ObservedLootItem observedLootItem = component as ObservedLootItem;
-                            if (observedLootItem != null)
-                            {
-                                GameObject SenseItemGameObject = new GameObject("SenseItem");
-                                AmandsSenseItem amandsSenseItem = SenseItemGameObject.AddComponent<AmandsSenseItem>();
-                                amandsSenseItem.observedLootItem = observedLootItem;
-                                amandsSenseItem.Id = observedLootItem.ItemId;
-                                amandsSenseItem.Delay = Vector3.Distance(localPlayer.Position, observedLootItem.transform.position) / AmandsSensePlugin.Speed.Value;
-                            }
-                        }
-                        else
-                        {
-                            component = colliders[i].transform.gameObject.GetComponent<LootableContainer>();
-                            if (component != null)
-                            {
-                                LootableContainer lootableContainer = component as LootableContainer;
-                                if (lootableContainer != null)
-                                {
-                                    GameObject SenseContainerGameObject = new GameObject("SenseContainer");
-                                    AmandsSenseContainer amandsSenseContainer = SenseContainerGameObject.AddComponent<AmandsSenseContainer>();
-                                    amandsSenseContainer.lootableContainer = lootableContainer;
-                                    amandsSenseContainer.Id = lootableContainer.Id;
-                                    amandsSenseContainer.Delay = Vector3.Distance(localPlayer.Position, lootableContainer.transform.position) / AmandsSensePlugin.Speed.Value;
-                                }
-                            }
-                        }
+                        GameObject SenseWorldGameObject = new GameObject("SenseWorld");
+                        AmandsSenseWorld amandsSenseWorld = SenseWorldGameObject.AddComponent<AmandsSenseWorld>();
+                        amandsSenseWorld.Id = deadPlayer.victim.GetInstanceID();
+                        amandsSenseWorld.Delay = Vector3.Distance(localPlayer.Position, deadPlayer.victim.Position) / AmandsSensePlugin.Speed.Value;
+                        amandsSenseWorld.eSenseWorldType = ESenseWorldType.Deadbody;
+                        amandsSenseWorld.SenseDeadPlayer = deadPlayer.victim as LocalPlayer;
+                        SenseWorlds.Add(amandsSenseWorld.Id, amandsSenseWorld);
                     }
-                    List<string> players = new List<string>();
-                    Collider[] colliders2 = new Collider[AmandsSensePlugin.Limit.Value];
-                    int colliderCount2 = Physics.OverlapSphereNonAlloc(localPlayer.Position, AmandsSensePlugin.DeadbodyRadius.Value, colliders2, SphereDeadbodyLayerMask, QueryTriggerInteraction.Collide);
-                    for (int i = 0; i < colliderCount2; i++)
+                    else
                     {
-                        BodyPartCollider bodyPartCollider = colliders2[i].transform.gameObject.GetComponent<BodyPartCollider>();
-                        if (bodyPartCollider != null && bodyPartCollider.BodyPartType == EBodyPart.Chest)
-                        {
-                            Player player = Traverse.Create(bodyPartCollider).Field("Player").GetValue() as Player;
-                            if (player == null)
-                            {
-                                player = Traverse.Create(bodyPartCollider).Property("Player").GetValue() as Player;
-                            }
-                            if (player != null && !players.Contains(player.ProfileId))
-                            {
-                                players.Add(player.ProfileId);
-                                Corpse corpse = player.GetComponent<Corpse>();
-                                if (corpse != null)
-                                {
-                                    GameObject SenseDeadbodyGameObject = new GameObject("SenseDeadbody");
-                                    AmandsSenseDeadbody amandsSenseDeadbody = SenseDeadbodyGameObject.AddComponent<AmandsSenseDeadbody>();
-                                    amandsSenseDeadbody.corpse = corpse;
-                                    amandsSenseDeadbody.bodyPartCollider = bodyPartCollider;
-                                    amandsSenseDeadbody.Id = corpse.ItemId;
-                                    if (bodyPartCollider.Collider != null)
-                                    {
-                                        amandsSenseDeadbody.Delay = Vector3.Distance(localPlayer.Position, bodyPartCollider.Collider.transform.position) / AmandsSensePlugin.Speed.Value;
-                                    }
-                                    else
-                                    {
-                                        amandsSenseDeadbody.Delay = Vector3.Distance(localPlayer.Position, corpse.transform.position) / AmandsSensePlugin.Speed.Value;
-                                    }
-                                }
-                            }
-                        }
+                        SenseWorlds[deadPlayer.victim.GetInstanceID()].RestartSense();
                     }
-                }
-                if (prismEffects != null)
-                {
-                    Radius = 0;
-                    prismEffects.useDof = AmandsSensePlugin.useDof.Value;
-                    prismEffects.debugDofPass = false;
-                    prismEffects.dofForceEnableMedian = AmandsSensePlugin.dofForceEnableMedian.Value;
-                    prismEffects.dofBokehFactor = AmandsSensePlugin.dofBokehFactor.Value;
-                    prismEffects.dofFocusDistance = AmandsSensePlugin.dofFocusDistance.Value;
-                    prismEffects.dofNearFocusDistance = 100f;
-                    prismEffects.dofRadius = 0f;
                 }
             }
         }
-        public async void DynamicAlwaysOnSense()
+        public void ShowSenseExfils()
         {
-            await Task.Delay((int)(AmandsSensePlugin.AlwaysOnFrequency.Value * 1000));
-            if (!AmandsSensePlugin.SenseAlwaysOn.Value)
+            if (!AmandsSensePlugin.EnableExfilSense.Value) return;
+            float ClosestDistance = 10000000000f;
+            if (ClosestAmandsSenseExfil != null && ClosestAmandsSenseExfil.light != null) ClosestAmandsSenseExfil.light.shadows = LightShadows.None;
+            foreach (AmandsSenseExfil senseExfil in SenseExfils)
             {
-                if (ValidSenseAlwaysOn)
+                if (localPlayer != null && Vector3.Distance(senseExfil.transform.position,localPlayer.gameObject.transform.position) < ClosestDistance)
                 {
-                    ValidSenseAlwaysOn = false;
-                    ClearAlwaysOn();
+                    ClosestAmandsSenseExfil = senseExfil;
+                    ClosestDistance = Vector3.Distance(senseExfil.transform.position, localPlayer.gameObject.transform.position);
                 }
-                DynamicAlwaysOnSense();
-                return;
-            }
-            if (localPlayer == null) return;
-            Collider[] colliders = new Collider[AmandsSensePlugin.Limit.Value];
-            int colliderCount = Physics.OverlapSphereNonAlloc(localPlayer.Position, AmandsSensePlugin.AlwaysOnRadius.Value, colliders, SphereInteractiveLayerMask, QueryTriggerInteraction.Collide);
 
-            await Task.Delay((int)(100));
-            List<Collider> collidersList = new List<Collider>(colliders);
-            foreach (AmandsSenseAlwaysOn amandsSenseAlwaysOn in ItemsAlwaysOn)
-            {
-                if (amandsSenseAlwaysOn == null) continue;
-                if (amandsSenseAlwaysOn.collider != null)
+                if (senseExfil.Intensity > 0.5f)
                 {
-                    int index = collidersList.IndexOf(amandsSenseAlwaysOn.collider);
-                    if (index != -1)
-                    {
-                        collidersList[index] = null;
-                    }
-                    else
-                    {
-                        amandsSenseAlwaysOn.StartOpacity = false;
-                        amandsSenseAlwaysOn.UpdateOpacity = true;
-                    }
+                    senseExfil.LifeSpan = 0f;
+                    senseExfil.UpdateSense();
                 }
                 else
                 {
-                    amandsSenseAlwaysOn.StartOpacity = false;
-                    amandsSenseAlwaysOn.UpdateOpacity = true;
+                    senseExfil.ShowSense();
                 }
             }
-
-            await Task.Delay((int)(100));
-            foreach (AmandsSenseContainerAlwaysOn amandsSenseContainerAlwaysOn in ContainersAlwaysOn)
-            {
-                if (amandsSenseContainerAlwaysOn == null) continue;
-                if (amandsSenseContainerAlwaysOn.collider != null)
-                {
-                    int index = collidersList.IndexOf(amandsSenseContainerAlwaysOn.collider);
-                    if (index != -1)
-                    {
-                        collidersList[index] = null;
-                    }
-                    else
-                    {
-                        amandsSenseContainerAlwaysOn.StartOpacity = false;
-                        amandsSenseContainerAlwaysOn.UpdateOpacity = true;
-                    }
-                }
-                else
-                {
-                    amandsSenseContainerAlwaysOn.StartOpacity = false;
-                    amandsSenseContainerAlwaysOn.UpdateOpacity = true;
-                }
-            }
-
-            await Task.Delay((int)(100));
-            for (int i = 0; i < colliderCount; i++)
-            {
-                if (collidersList[i] == null) continue;
-                Component component = collidersList[i].transform.gameObject.GetComponent<ObservedLootItem>();
-                if (component != null)
-                {
-                    ObservedLootItem observedLootItem = component as ObservedLootItem;
-                    if (observedLootItem != null)
-                    {
-                        GameObject SenseAlwaysOnGameObject = new GameObject("SenseAlwaysOn");
-                        AmandsSenseAlwaysOn amandsSenseAlwaysOn = SenseAlwaysOnGameObject.AddComponent<AmandsSenseAlwaysOn>();
-                        amandsSenseAlwaysOn.collider = collidersList[i];
-                        amandsSenseAlwaysOn.observedLootItem = observedLootItem;
-                        amandsSenseAlwaysOn.Id = observedLootItem.ItemId;
-                        //amandsSenseAlwaysOn.Delay = UnityEngine.Random.Range(0.0f, 1f);
-                    }
-                }
-                else
-                {
-                    component = collidersList[i].transform.gameObject.GetComponent<LootableContainer>();
-                    if (component != null)
-                    {
-                        LootableContainer lootableContainer = component as LootableContainer;
-                        if (lootableContainer != null)
-                        {
-                            GameObject SenseContainerAlwaysOnGameObject = new GameObject("SenseContainerAlwaysOn");
-                            AmandsSenseContainerAlwaysOn amandsSenseContainerAlwaysOn = SenseContainerAlwaysOnGameObject.AddComponent<AmandsSenseContainerAlwaysOn>();
-                            amandsSenseContainerAlwaysOn.collider = collidersList[i];
-                            amandsSenseContainerAlwaysOn.lootableContainer = lootableContainer;
-                            amandsSenseContainerAlwaysOn.Id = lootableContainer.Id;
-                            //amandsSenseContainerAlwaysOn.Delay = UnityEngine.Random.Range(0.0f, 1f);
-                        }
-                    }
-                }
-            }
-
-            await Task.Delay((int)(100));
-            List<string> players = new List<string>();
-            Collider[] colliders2 = new Collider[AmandsSensePlugin.Limit.Value];
-            int colliderCount2 = Physics.OverlapSphereNonAlloc(localPlayer.Position, AmandsSensePlugin.AlwaysOnDeadbodyRadius.Value, colliders2, SphereDeadbodyLayerMask, QueryTriggerInteraction.Collide);
-
-            await Task.Delay((int)(100));
-            List<Collider> colliders2List = new List<Collider>(colliders2);
-            foreach (AmandsSenseDeadbodyAlwaysOn amandsSenseDeadbodyAlwaysOn in DeadbodyAlwaysOn)
-            {
-                if (amandsSenseDeadbodyAlwaysOn == null) continue;
-                if (amandsSenseDeadbodyAlwaysOn.collider != null)
-                {
-                    int index = colliders2List.IndexOf(amandsSenseDeadbodyAlwaysOn.collider);
-                    if (index != -1)
-                    {
-                        colliders2List[index] = null;
-                    }
-                    else
-                    {
-                        amandsSenseDeadbodyAlwaysOn.StartOpacity = false;
-                        amandsSenseDeadbodyAlwaysOn.UpdateOpacity = true;
-                    }
-                }
-                else
-                {
-                    amandsSenseDeadbodyAlwaysOn.StartOpacity = false;
-                    amandsSenseDeadbodyAlwaysOn.UpdateOpacity = true;
-                }
-            }
-
-            await Task.Delay((int)(100));
-            for (int i = 0; i < colliderCount2; i++)
-            {
-                if (colliders2List[i] == null) continue;
-                BodyPartCollider bodyPartCollider = colliders2List[i].transform.gameObject.GetComponent<BodyPartCollider>();
-                if (bodyPartCollider != null && bodyPartCollider.BodyPartType == EBodyPart.Stomach)
-                {
-                    Player player = Traverse.Create(bodyPartCollider).Field("Player").GetValue() as Player;
-                    if (player == null)
-                    {
-                        player = Traverse.Create(bodyPartCollider).Property("Player").GetValue() as Player;
-                    }
-                    if (player != null && !players.Contains(player.ProfileId))
-                    {
-                        players.Add(player.ProfileId);
-                        Corpse corpse = player.GetComponent<Corpse>();
-                        if (corpse != null)
-                        {
-                            GameObject SenseDeadbodyAlwaysOnGameObject = new GameObject("SenseDeadbodyAlwaysOn");
-                            AmandsSenseDeadbodyAlwaysOn amandsSenseDeadbodyAlwaysOn = SenseDeadbodyAlwaysOnGameObject.AddComponent<AmandsSenseDeadbodyAlwaysOn>();
-                            amandsSenseDeadbodyAlwaysOn.collider = colliders2List[i];
-                            amandsSenseDeadbodyAlwaysOn.corpse = corpse;
-                            amandsSenseDeadbodyAlwaysOn.bodyPartCollider = bodyPartCollider;
-                            amandsSenseDeadbodyAlwaysOn.Id = corpse.ItemId;
-                            //amandsSenseDeadbodyAlwaysOn.Delay = UnityEngine.Random.Range(0.0f, 1f);
-                        }
-                    }
-                }
-            }
-            ValidSenseAlwaysOn = true;
-            DynamicAlwaysOnSense();
+            if (AmandsSensePlugin.ExfilLightShadows.Value && ClosestAmandsSenseExfil != null && ClosestAmandsSenseExfil.light != null) ClosestAmandsSenseExfil.light.shadows = LightShadows.Hard;
         }
-        public void ClearAlwaysOn()
+        public static void Clear()
         {
-            foreach (AmandsSenseAlwaysOn amandsSenseAlwaysOn in ItemsAlwaysOn)
+            foreach (KeyValuePair<int,AmandsSenseWorld> keyValuePair in SenseWorlds)
             {
-                if (amandsSenseAlwaysOn == null) continue;
-                amandsSenseAlwaysOn.StartOpacity = false;
-                amandsSenseAlwaysOn.UpdateOpacity = true;
+                if (keyValuePair.Value != null) keyValuePair.Value.RemoveSense();
             }
-            foreach (AmandsSenseContainerAlwaysOn amandsSenseContainerAlwaysOn in ContainersAlwaysOn)
-            {
-                if (amandsSenseContainerAlwaysOn == null) continue;
-                amandsSenseContainerAlwaysOn.StartOpacity = false;
-                amandsSenseContainerAlwaysOn.UpdateOpacity = true;
-            }
-            foreach (AmandsSenseDeadbodyAlwaysOn amandsSenseDeadbodyAlwaysOn in DeadbodyAlwaysOn)
-            {
-                if (amandsSenseDeadbodyAlwaysOn == null) continue;
-                amandsSenseDeadbodyAlwaysOn.StartOpacity = false;
-                amandsSenseDeadbodyAlwaysOn.UpdateOpacity = true;
-            }
-            ItemsAlwaysOn.Clear();
-            ContainersAlwaysOn.Clear();
-            DeadbodyAlwaysOn.Clear();
+            SenseWorlds.Clear();
+
+            ClosestAmandsSenseExfil = null;
+            SenseExfils = SenseExfils.Where(x => x != null).ToList();
+
+            DeadPlayers.Clear();
         }
         public static ESenseItemType SenseItemType(Type itemType)
         {
@@ -679,159 +500,510 @@ namespace AmandsSense
             }
         }
     }
-    public class AmandsSenseItem : MonoBehaviour
+    public class AmandsSenseWorld : MonoBehaviour
     {
-        public ObservedLootItem observedLootItem;
-        public string Id;
-        public SpriteRenderer spriteRenderer;
-        public Sprite sprite;
-        public string ItemSound;
-        public Light light;
-        public Color color = AmandsSensePlugin.ObservedLootItemColor.Value;
-        public bool useNewSize = false;
+        public ESenseWorldType eSenseWorldType = ESenseWorldType.Item;
 
-        public float Delay = 0f;
-        private bool UpdateOpacity = false;
-        private bool StartOpacity = true;
-        private float Opacity = 0f;
+        public Collider SenseCollider;
+
+        public LocalPlayer SenseDeadPlayer;
+
+        public int Id;
+
+        public float Delay;
+        public float LifeSpan;
+
+        public bool Waiting = false;
+        public bool WaitingRemoveSense = false;
+        public bool UpdateIntensity = false;
+        public bool Starting = true;
+        public float Intensity = 0f;
+
+        public GameObject amandsSenseConstructorGameObject;
+        public AmandsSenseConstructor amandsSenseConstructor;
 
         public void Start()
         {
-            if (AmandsSenseClass.ItemsSenses.Contains(Id))
-            {
-                Destroy(gameObject);
-            }
-            else
-            {
-                AmandsSenseClass.ItemsSenses.Add(Id);
-                WaitAndStart();
-            }
+            enabled = false;
+            WaitAndStart();
         }
         private async void WaitAndStart()
         {
+            Waiting = true;
             await Task.Delay((int)(Delay * 1000));
-            if (observedLootItem != null && observedLootItem.gameObject.activeSelf && observedLootItem.Item != null && AmandsSenseClass.localPlayer != null && observedLootItem.transform.position.y > AmandsSenseClass.localPlayer.Position.y + AmandsSensePlugin.MinHeight.Value && observedLootItem.transform.position.y < AmandsSenseClass.localPlayer.Position.y + AmandsSensePlugin.MaxHeight.Value)
+            if (WaitingRemoveSense)
             {
-                BoxCollider boxCollider = observedLootItem.gameObject.GetComponent<BoxCollider>();
-                if (boxCollider != null)
+                RemoveSense();
+                return;
+            }
+            if (eSenseWorldType == ESenseWorldType.Deadbody)
+            {
+                if (SenseDeadPlayer == null || (SenseDeadPlayer != null && !SenseDeadPlayer.gameObject.activeSelf))
                 {
-                    Vector3 position = boxCollider.transform.TransformPoint(boxCollider.center);
-                    gameObject.transform.position = new Vector3(position.x, boxCollider.ClosestPoint(position + (Vector3.up * 100f)).y + AmandsSensePlugin.NormalSize.Value, position.z);
+                    RemoveSense();
+                    return;
+                }
+            }
+            else if (SenseCollider == null || (SenseCollider != null && !SenseCollider.gameObject.activeSelf))
+            {
+                RemoveSense();
+                return;
+            }
+
+            LifeSpan = 0f;
+
+            if (Starting)
+            {
+                enabled = true;
+                UpdateIntensity = true;
+
+                if (eSenseWorldType == ESenseWorldType.Deadbody && SenseDeadPlayer != null)
+                {
+                    transform.position = SenseDeadPlayer.Position;
+                }
+                else if (SenseCollider != null)
+                {
+                    transform.position = SenseCollider.transform.position;
+                }
+                if (AmandsSenseClass.localPlayer != null && (transform.position.y < AmandsSenseClass.localPlayer.Position.y + AmandsSensePlugin.MinHeight.Value || transform.position.y > AmandsSenseClass.localPlayer.Position.y + AmandsSensePlugin.MaxHeight.Value))
+                {
+                    RemoveSense();
+                    return;
+                }
+
+                amandsSenseConstructorGameObject = new GameObject("Constructor");
+                amandsSenseConstructorGameObject.transform.SetParent(gameObject.transform, false);
+                amandsSenseConstructorGameObject.transform.localScale = Vector3.one * AmandsSensePlugin.Size.Value;
+
+                switch (eSenseWorldType)
+                {
+                    case ESenseWorldType.Item:
+                    case ESenseWorldType.Container:
+                    case ESenseWorldType.Drawer:
+                        ObservedLootItem observedLootItem = SenseCollider.transform.gameObject.GetComponent<ObservedLootItem>();
+                        if (observedLootItem != null)
+                        {
+                            eSenseWorldType = ESenseWorldType.Item;
+                            amandsSenseConstructor = amandsSenseConstructorGameObject.AddComponent<AmandsSenseItem>();
+                            amandsSenseConstructor.amandsSenseWorld = this;
+                            amandsSenseConstructor.Construct();
+                            amandsSenseConstructor.SetSense(observedLootItem);
+                        }
+                        else
+                        {
+                            LootableContainer lootableContainer = SenseCollider.transform.gameObject.GetComponent<LootableContainer>();
+                            if (lootableContainer != null)
+                            {
+                                if (lootableContainer.ItemOwner.ContainerName == "DRAWER")
+                                {
+                                    eSenseWorldType = ESenseWorldType.Drawer;
+                                    amandsSenseConstructorGameObject.transform.localPosition = new Vector3(-0.08f, 0.05f, 0);
+                                    amandsSenseConstructorGameObject.transform.localRotation = Quaternion.Euler(90, 0, 0);
+                                }
+                                else
+                                {
+                                    eSenseWorldType = ESenseWorldType.Container;
+                                }
+
+                                amandsSenseConstructor = amandsSenseConstructorGameObject.AddComponent<AmandsSenseContainer>();
+                                amandsSenseConstructor.amandsSenseWorld = this;
+                                amandsSenseConstructor.Construct();
+                                amandsSenseConstructor.SetSense(lootableContainer);
+                            }
+                            else
+                            {
+                                RemoveSense();
+                                return;
+                            }
+                        }
+                        break;
+                    case ESenseWorldType.Deadbody:
+                        amandsSenseConstructor = amandsSenseConstructorGameObject.AddComponent<AmandsSenseDeadPlayer>();
+                        amandsSenseConstructor.amandsSenseWorld = this;
+                        amandsSenseConstructor.Construct();
+                        amandsSenseConstructor.SetSense(SenseDeadPlayer);
+                        break;
+                }
+
+                // SenseWorld Starting Posittion
+                switch (eSenseWorldType)
+                {
+                    case ESenseWorldType.Item:
+                        gameObject.transform.position = new Vector3(SenseCollider.bounds.center.x, SenseCollider.ClosestPoint(SenseCollider.bounds.center + (Vector3.up * 10f)).y + AmandsSensePlugin.VerticalOffset.Value, SenseCollider.bounds.center.z);
+                        break;
+                    case ESenseWorldType.Container:
+                        if (SenseCollider != null)
+                        {
+                            BoxCollider boxCollider = SenseCollider as BoxCollider;
+                            if (boxCollider != null)
+                            {
+                                Vector3 position = SenseCollider.transform.TransformPoint(boxCollider.center);
+                                gameObject.transform.position = new Vector3(position.x, SenseCollider.ClosestPoint(position + (Vector3.up * 100f)).y + AmandsSensePlugin.VerticalOffset.Value, position.z);
+                            }
+                        }
+                        break;
+                    case ESenseWorldType.Drawer:
+                        if (SenseCollider != null)
+                        {
+                            BoxCollider boxCollider = SenseCollider as BoxCollider;
+                            if (boxCollider != null)
+                            {
+                                Vector3 position = SenseCollider.transform.TransformPoint(boxCollider.center);
+                                gameObject.transform.position = position;
+                                gameObject.transform.rotation = SenseCollider.transform.rotation;
+                            }
+                        }
+                        break;
+                    case ESenseWorldType.Deadbody:
+                        if (amandsSenseConstructor != null)
+                        {
+                            amandsSenseConstructor.UpdateSenseLocation();
+                        }
+                        break;
+                }
+            }
+            else
+            {
+                if (AmandsSenseClass.localPlayer != null && (transform.position.y < AmandsSenseClass.localPlayer.Position.y + AmandsSensePlugin.MinHeight.Value || transform.position.y > AmandsSenseClass.localPlayer.Position.y + AmandsSensePlugin.MaxHeight.Value))
+                {
+                    RemoveSense();
+                    return;
+                }
+
+                if (amandsSenseConstructor != null) amandsSenseConstructor.UpdateSense();
+
+                // SenseWorld Position
+                switch (eSenseWorldType)
+                {
+                    case ESenseWorldType.Item:
+                        gameObject.transform.position = new Vector3(SenseCollider.bounds.center.x, SenseCollider.ClosestPoint(SenseCollider.bounds.center + (Vector3.up * 10f)).y + AmandsSensePlugin.VerticalOffset.Value, SenseCollider.bounds.center.z);
+                        break;
+                    case ESenseWorldType.Container:
+                        break;
+                    case ESenseWorldType.Deadbody:
+                        if (amandsSenseConstructor != null)
+                        {
+                            amandsSenseConstructor.UpdateSenseLocation();
+                        }
+                        break;
+                    case ESenseWorldType.Drawer:
+                        break;
+                }
+            }
+
+            Waiting = false;
+        }
+        public void RestartSense()
+        {
+            if (Waiting || UpdateIntensity) return;
+
+            LifeSpan = 0f;
+            Delay = Vector3.Distance(AmandsSenseClass.localPlayer.Position, gameObject.transform.position) / AmandsSensePlugin.Speed.Value;
+            WaitAndStart();
+        }
+        public void RemoveSense()
+        {
+            if (amandsSenseConstructor != null) amandsSenseConstructor.RemoveSense();
+            AmandsSenseClass.SenseWorlds.Remove(Id);
+            if (gameObject != null) Destroy(gameObject);
+        }
+        public void CancelSense()
+        {
+            UpdateIntensity = true;
+            Starting = false;
+        }
+        public void Update()
+        {
+            if (UpdateIntensity)
+            {
+                if (Starting)
+                {
+                    Intensity += AmandsSensePlugin.IntensitySpeed.Value * Time.deltaTime;
+                    if (Intensity >= 1f)
+                    {
+                        UpdateIntensity = false;
+                        Starting = false;
+                    }
                 }
                 else
                 {
-                    gameObject.transform.position = observedLootItem.transform.position + (Vector3.up * AmandsSensePlugin.NormalSize.Value);
-                }
-                ESenseItemType eSenseItemType = ESenseItemType.ObservedLootItem;
-                eSenseItemType = AmandsSenseClass.SenseItemType(observedLootItem.Item.GetType());
-                if (typeof(Weapon).IsAssignableFrom(observedLootItem.Item.GetType()))
-                {
-                    Weapon weapon = observedLootItem.Item as Weapon;
-                    if (weapon != null)
+                    Intensity -= AmandsSensePlugin.IntensitySpeed.Value * Time.deltaTime;
+                    if (Intensity <= 0f)
                     {
-                        switch (weapon.WeapClass)
+                        if (Waiting)
                         {
-                            case "assaultCarbine":
-                                eSenseItemType = ESenseItemType.AssaultCarbines;
-                                color = AmandsSensePlugin.AssaultCarbinesColor.Value;
-                                if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_weapons_carbines.png"))
-                                {
-                                    sprite = AmandsSenseClass.LoadedSprites["icon_weapons_carbines.png"];
-                                    useNewSize = true;
-                                }
-                                break;
-                            case "assaultRifle":
-                                eSenseItemType = ESenseItemType.AssaultRifles;
-                                color = AmandsSensePlugin.AssaultRiflesColor.Value;
-                                if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_weapons_assaultrifles.png"))
-                                {
-                                    sprite = AmandsSenseClass.LoadedSprites["icon_weapons_assaultrifles.png"];
-                                    useNewSize = true;
-                                }
-                                break;
-                            case "sniperRifle":
-                                eSenseItemType = ESenseItemType.BoltActionRifles;
-                                color = AmandsSensePlugin.BoltActionRiflesColor.Value;
-                                if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_weapons_botaction.png"))
-                                {
-                                    sprite = AmandsSenseClass.LoadedSprites["icon_weapons_botaction.png"];
-                                    useNewSize = true;
-                                }
-                                break;
-                            case "grenadeLauncher":
-                                eSenseItemType = ESenseItemType.GrenadeLaunchers;
-                                color = AmandsSensePlugin.GrenadeLaunchersColor.Value;
-                                if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_weapons_gl.png"))
-                                {
-                                    sprite = AmandsSenseClass.LoadedSprites["icon_weapons_gl.png"];
-                                    useNewSize = true;
-                                }
-                                break;
-                            case "machinegun":
-                                eSenseItemType = ESenseItemType.MachineGuns;
-                                color = AmandsSensePlugin.MachineGunsColor.Value;
-                                if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_weapons_mg.png"))
-                                {
-                                    sprite = AmandsSenseClass.LoadedSprites["icon_weapons_mg.png"];
-                                    useNewSize = true;
-                                }
-                                break;
-                            case "marksmanRifle":
-                                eSenseItemType = ESenseItemType.MarksmanRifles;
-                                color = AmandsSensePlugin.MarksmanRiflesColor.Value;
-                                if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_weapons_dmr.png"))
-                                {
-                                    sprite = AmandsSenseClass.LoadedSprites["icon_weapons_dmr.png"];
-                                    useNewSize = true;
-                                }
-                                break;
-                            case "pistol":
-                                eSenseItemType = ESenseItemType.Pistols;
-                                color = AmandsSensePlugin.PistolsColor.Value;
-                                if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_weapons_pistols.png"))
-                                {
-                                    sprite = AmandsSenseClass.LoadedSprites["icon_weapons_pistols.png"];
-                                    useNewSize = true;
-                                }
-                                break;
-                            case "smg":
-                                eSenseItemType = ESenseItemType.SMGs;
-                                color = AmandsSensePlugin.SMGsColor.Value;
-                                if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_weapons_smg.png"))
-                                {
-                                    sprite = AmandsSenseClass.LoadedSprites["icon_weapons_smg.png"];
-                                    useNewSize = true;
-                                }
-                                break;
-                            case "shotgun":
-                                eSenseItemType = ESenseItemType.Shotguns;
-                                color = AmandsSensePlugin.ShotgunsColor.Value;
-                                if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_weapons_shotguns.png"))
-                                {
-                                    sprite = AmandsSenseClass.LoadedSprites["icon_weapons_shotguns.png"];
-                                    useNewSize = true;
-                                }
-                                break;
-                            case "specialWeapon":
-                                eSenseItemType = ESenseItemType.SpecialWeapons;
-                                color = AmandsSensePlugin.SpecialWeaponsColor.Value;
-                                if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_weapons_special.png"))
-                                {
-                                    sprite = AmandsSenseClass.LoadedSprites["icon_weapons_special.png"];
-                                    useNewSize = true;
-                                }
-                                break;
+                            WaitingRemoveSense = true;
                         }
+                        else
+                        {
+                            RemoveSense();
+                        }
+                        return;
                     }
                 }
-                if (eSenseItemType == ESenseItemType.All)
+
+                if (amandsSenseConstructor != null) amandsSenseConstructor.UpdateIntensity(Intensity);
+
+            }
+            else if (!Starting && !Waiting)
+            {
+                LifeSpan += Time.deltaTime;
+                if (LifeSpan > AmandsSensePlugin.Duration.Value)
                 {
-                    eSenseItemType = ESenseItemType.ObservedLootItem;
+                    UpdateIntensity = true;
                 }
-                AmandsSenseClass.onItemsSensesAdded(Id, observedLootItem.Item.TemplateId, observedLootItem.Item.CanSellOnRagfair, gameObject.transform.position, eSenseItemType);
+            }
+            if (Camera.main != null)
+            {
+                switch (eSenseWorldType)
+                {
+                    case ESenseWorldType.Item:
+                    case ESenseWorldType.Container:
+                    case ESenseWorldType.Deadbody:
+                        transform.rotation = Camera.main.transform.rotation;
+                        transform.localScale = Vector3.one * Mathf.Min(AmandsSensePlugin.SizeClamp.Value, Vector3.Distance(Camera.main.transform.position, transform.position));
+                        break;
+                    case ESenseWorldType.Drawer:
+                        break;
+                }
+            }
+        }
+    }
+    public class AmandsSenseConstructor : MonoBehaviour
+    {
+        public AmandsSenseWorld amandsSenseWorld;
+
+        public Color color = AmandsSensePlugin.ObservedLootItemColor.Value;
+        public Color textColor = AmandsSensePlugin.TextColor.Value;
+
+        public SpriteRenderer spriteRenderer;
+        public Sprite sprite;
+
+        public Light light;
+
+        public GameObject textGameObject;
+
+        public TextMeshPro typeText;
+        public TextMeshPro nameText;
+        public TextMeshPro descriptionText;
+
+        virtual public void Construct()
+        {
+            // SenseConstructor Sprite GameObject
+            GameObject spriteGameObject = new GameObject("Sprite");
+            spriteGameObject.transform.SetParent(gameObject.transform, false);
+            RectTransform spriteRectTransform = spriteGameObject.AddComponent<RectTransform>();
+
+            // SenseConstructor Sprite
+            spriteRenderer = spriteGameObject.AddComponent<SpriteRenderer>();
+            spriteRenderer.sprite = sprite;
+            spriteRenderer.color = new Color(color.r, color.g, color.b, 0f);
+
+            // SenseConstructor Sprite Light
+            light = spriteGameObject.AddComponent<Light>();
+            light.color = new Color(color.r, color.g, color.b, 1f);
+            light.shadows = AmandsSensePlugin.LightShadows.Value ? LightShadows.Hard : LightShadows.None;
+            light.intensity = 0f;
+            light.range = AmandsSensePlugin.LightRange.Value;
+
+            if (AmandsSensePlugin.EnableSense.Value != EEnableSense.OnText) return;
+
+            // SenseConstructor Text
+            textGameObject = new GameObject("Text");
+            textGameObject.transform.SetParent(gameObject.transform, false);
+            RectTransform textRectTransform = textGameObject.AddComponent<RectTransform>();
+            textRectTransform.localPosition = new Vector3(0.15f, 0, 0);
+            textRectTransform.pivot = new Vector2(0, 0.5f);
+
+            // SenseConstructor VerticalLayoutGroup
+            VerticalLayoutGroup verticalLayoutGroup = textGameObject.AddComponent<VerticalLayoutGroup>();
+            verticalLayoutGroup.spacing = -0.02f;
+            verticalLayoutGroup.childForceExpandHeight = false;
+            verticalLayoutGroup.childForceExpandWidth = false;
+            verticalLayoutGroup.childControlHeight = true;
+            verticalLayoutGroup.childControlWidth = true;
+            ContentSizeFitter contentSizeFitter = textGameObject.AddComponent<ContentSizeFitter>();
+            contentSizeFitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+            contentSizeFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            // SenseConstructor Type
+            GameObject typeTextGameObject = new GameObject("Type");
+            typeTextGameObject.transform.SetParent(textGameObject.transform, false);
+            typeText = typeTextGameObject.AddComponent<TextMeshPro>();
+            typeText.autoSizeTextContainer = true;
+            typeText.fontSize = 0.5f;
+            typeText.text = "Type";
+            typeText.color = new Color(color.r, color.g, color.b, 0f);
+
+            // SenseConstructor Name
+            GameObject nameTextGameObject = new GameObject("Name");
+            nameTextGameObject.transform.SetParent(textGameObject.transform, false);
+            nameText = nameTextGameObject.AddComponent<TextMeshPro>();
+            nameText.autoSizeTextContainer = true;
+            nameText.fontSize = 1f;
+            nameText.text = "Name";
+            nameText.color = new Color(textColor.r, textColor.g, textColor.b, 0f);
+
+            // SenseConstructor Description
+            GameObject descriptionTextGameObject = new GameObject("Description");
+            descriptionTextGameObject.transform.SetParent(textGameObject.transform, false);
+            descriptionText = descriptionTextGameObject.AddComponent<TextMeshPro>();
+            descriptionText.autoSizeTextContainer = true;
+            descriptionText.fontSize = 0.75f;
+            descriptionText.text = "";
+            descriptionText.color = new Color(textColor.r, textColor.g, textColor.b, 0f);
+        }
+        virtual public void SetSense(ObservedLootItem observedLootItem)
+        {
+
+        }
+        virtual public void SetSense(LootableContainer lootableContainer)
+        {
+
+        }
+        virtual public void SetSense(LocalPlayer DeadPlayer)
+        {
+
+        }
+        virtual public void SetSense(ExfiltrationPoint ExfiltrationPoint)
+        {
+
+        }
+        virtual public void UpdateSense()
+        {
+
+        }
+        virtual public void UpdateSenseLocation()
+        {
+
+        }
+        virtual public void UpdateIntensity(float Intensity)
+        {
+
+        }
+        virtual public void RemoveSense()
+        {
+
+        }
+    }
+
+    public class AmandsSenseItem : AmandsSenseConstructor
+    {
+        public ObservedLootItem observedLootItem;
+        public string ItemId;
+
+        public ESenseItemType eSenseItemType = ESenseItemType.All;
+
+        public override void SetSense(ObservedLootItem ObservedLootItem)
+        {
+            eSenseItemType = ESenseItemType.All;
+            color = AmandsSensePlugin.ObservedLootItemColor.Value;
+
+            observedLootItem = ObservedLootItem;
+            if (observedLootItem != null && observedLootItem.gameObject.activeSelf && observedLootItem.Item != null)
+            {
+                ItemId = observedLootItem.ItemId;
+
+                // Weapon SenseItem Color and Sprite
+                Weapon weapon = observedLootItem.Item as Weapon;
+                if (weapon != null)
+                {
+                    switch (weapon.WeapClass)
+                    {
+                        case "assaultCarbine":
+                            eSenseItemType = ESenseItemType.AssaultCarbines;
+                            color = AmandsSensePlugin.AssaultCarbinesColor.Value;
+                            if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_weapons_carbines.png"))
+                            {
+                                sprite = AmandsSenseClass.LoadedSprites["icon_weapons_carbines.png"];
+                            }
+                            break;
+                        case "assaultRifle":
+                            eSenseItemType = ESenseItemType.AssaultRifles;
+                            color = AmandsSensePlugin.AssaultRiflesColor.Value;
+                            if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_weapons_assaultrifles.png"))
+                            {
+                                sprite = AmandsSenseClass.LoadedSprites["icon_weapons_assaultrifles.png"];
+                            }
+                            break;
+                        case "sniperRifle":
+                            eSenseItemType = ESenseItemType.BoltActionRifles;
+                            color = AmandsSensePlugin.BoltActionRiflesColor.Value;
+                            if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_weapons_botaction.png"))
+                            {
+                                sprite = AmandsSenseClass.LoadedSprites["icon_weapons_botaction.png"];
+                            }
+                            break;
+                        case "grenadeLauncher":
+                            eSenseItemType = ESenseItemType.GrenadeLaunchers;
+                            color = AmandsSensePlugin.GrenadeLaunchersColor.Value;
+                            if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_weapons_gl.png"))
+                            {
+                                sprite = AmandsSenseClass.LoadedSprites["icon_weapons_gl.png"];
+                            }
+                            break;
+                        case "machinegun":
+                            eSenseItemType = ESenseItemType.MachineGuns;
+                            color = AmandsSensePlugin.MachineGunsColor.Value;
+                            if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_weapons_mg.png"))
+                            {
+                                sprite = AmandsSenseClass.LoadedSprites["icon_weapons_mg.png"];
+                            }
+                            break;
+                        case "marksmanRifle":
+                            eSenseItemType = ESenseItemType.MarksmanRifles;
+                            color = AmandsSensePlugin.MarksmanRiflesColor.Value;
+                            if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_weapons_dmr.png"))
+                            {
+                                sprite = AmandsSenseClass.LoadedSprites["icon_weapons_dmr.png"];
+                            }
+                            break;
+                        case "pistol":
+                            eSenseItemType = ESenseItemType.Pistols;
+                            color = AmandsSensePlugin.PistolsColor.Value;
+                            if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_weapons_pistols.png"))
+                            {
+                                sprite = AmandsSenseClass.LoadedSprites["icon_weapons_pistols.png"];
+                            }
+                            break;
+                        case "smg":
+                            eSenseItemType = ESenseItemType.SMGs;
+                            color = AmandsSensePlugin.SMGsColor.Value;
+                            if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_weapons_smg.png"))
+                            {
+                                sprite = AmandsSenseClass.LoadedSprites["icon_weapons_smg.png"];
+                            }
+                            break;
+                        case "shotgun":
+                            eSenseItemType = ESenseItemType.Shotguns;
+                            color = AmandsSensePlugin.ShotgunsColor.Value;
+                            if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_weapons_shotguns.png"))
+                            {
+                                sprite = AmandsSenseClass.LoadedSprites["icon_weapons_shotguns.png"];
+                            }
+                            break;
+                        case "specialWeapon":
+                            eSenseItemType = ESenseItemType.SpecialWeapons;
+                            color = AmandsSensePlugin.SpecialWeaponsColor.Value;
+                            if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_weapons_special.png"))
+                            {
+                                sprite = AmandsSenseClass.LoadedSprites["icon_weapons_special.png"];
+                            }
+                            break;
+                        default:
+                            eSenseItemType = AmandsSenseClass.SenseItemType(observedLootItem.Item.GetType());
+                            break;
+                    }
+                }
+                else
+                {
+                    eSenseItemType = AmandsSenseClass.SenseItemType(observedLootItem.Item.GetType());
+                }
+
+                // SenseItem Color and Sprite
                 switch (eSenseItemType)
                 {
-                    case ESenseItemType.ObservedLootItem:
+                    case ESenseItemType.All:
                         color = AmandsSensePlugin.ObservedLootItemColor.Value;
                         if (AmandsSenseClass.LoadedSprites.ContainsKey("ObservedLootItem.png"))
                         {
@@ -843,7 +1015,6 @@ namespace AmandsSense
                         if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_barter_others.png"))
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_barter_others.png"];
-                            useNewSize = true;
                         }
                         break;
                     case ESenseItemType.BuildingMaterials:
@@ -851,7 +1022,6 @@ namespace AmandsSense
                         if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_barter_building.png"))
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_barter_building.png"];
-                            useNewSize = true;
                         }
                         break;
                     case ESenseItemType.Electronics:
@@ -859,7 +1029,6 @@ namespace AmandsSense
                         if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_barter_electronics.png"))
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_barter_electronics.png"];
-                            useNewSize = true;
                         }
                         break;
                     case ESenseItemType.EnergyElements:
@@ -867,7 +1036,6 @@ namespace AmandsSense
                         if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_barter_energy.png"))
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_barter_energy.png"];
-                            useNewSize = true;
                         }
                         break;
                     case ESenseItemType.FlammableMaterials:
@@ -875,7 +1043,6 @@ namespace AmandsSense
                         if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_barter_flammable.png"))
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_barter_flammable.png"];
-                            useNewSize = true;
                         }
                         break;
                     case ESenseItemType.HouseholdMaterials:
@@ -883,7 +1050,6 @@ namespace AmandsSense
                         if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_barter_household.png"))
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_barter_household.png"];
-                            useNewSize = true;
                         }
                         break;
                     case ESenseItemType.MedicalSupplies:
@@ -891,7 +1057,6 @@ namespace AmandsSense
                         if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_barter_medical.png"))
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_barter_medical.png"];
-                            useNewSize = true;
                         }
                         break;
                     case ESenseItemType.Tools:
@@ -899,7 +1064,6 @@ namespace AmandsSense
                         if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_barter_tools.png"))
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_barter_tools.png"];
-                            useNewSize = true;
                         }
                         break;
                     case ESenseItemType.Valuables:
@@ -907,7 +1071,6 @@ namespace AmandsSense
                         if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_barter_valuables.png"))
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_barter_valuables.png"];
-                            useNewSize = true;
                         }
                         break;
                     case ESenseItemType.Backpacks:
@@ -915,7 +1078,6 @@ namespace AmandsSense
                         if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_gear_backpacks.png"))
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_gear_backpacks.png"];
-                            useNewSize = true;
                         }
                         break;
                     case ESenseItemType.BodyArmor:
@@ -923,7 +1085,6 @@ namespace AmandsSense
                         if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_gear_armor.png"))
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_gear_armor.png"];
-                            useNewSize = true;
                         }
                         break;
                     case ESenseItemType.Eyewear:
@@ -931,7 +1092,6 @@ namespace AmandsSense
                         if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_gear_visors.png"))
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_gear_visors.png"];
-                            useNewSize = true;
                         }
                         break;
                     case ESenseItemType.Facecovers:
@@ -939,7 +1099,6 @@ namespace AmandsSense
                         if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_gear_facecovers.png"))
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_gear_facecovers.png"];
-                            useNewSize = true;
                         }
                         break;
                     case ESenseItemType.GearComponents:
@@ -947,7 +1106,6 @@ namespace AmandsSense
                         if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_gear_components.png"))
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_gear_components.png"];
-                            useNewSize = true;
                         }
                         break;
                     case ESenseItemType.Headgear:
@@ -955,7 +1113,6 @@ namespace AmandsSense
                         if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_gear_headwear.png"))
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_gear_headwear.png"];
-                            useNewSize = true;
                         }
                         break;
                     case ESenseItemType.Headsets:
@@ -963,7 +1120,6 @@ namespace AmandsSense
                         if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_gear_headsets.png"))
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_gear_headsets.png"];
-                            useNewSize = true;
                         }
                         break;
                     case ESenseItemType.SecureContainers:
@@ -971,7 +1127,6 @@ namespace AmandsSense
                         if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_gear_secured.png"))
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_gear_secured.png"];
-                            useNewSize = true;
                         }
                         break;
                     case ESenseItemType.StorageContainers:
@@ -979,7 +1134,6 @@ namespace AmandsSense
                         if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_gear_cases.png"))
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_gear_cases.png"];
-                            useNewSize = true;
                         }
                         break;
                     case ESenseItemType.TacticalRigs:
@@ -987,7 +1141,6 @@ namespace AmandsSense
                         if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_gear_rigs.png"))
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_gear_rigs.png"];
-                            useNewSize = true;
                         }
                         break;
                     case ESenseItemType.FunctionalMods:
@@ -995,7 +1148,6 @@ namespace AmandsSense
                         if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_mods_functional.png"))
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_mods_functional.png"];
-                            useNewSize = true;
                         }
                         break;
                     case ESenseItemType.GearMods:
@@ -1003,7 +1155,6 @@ namespace AmandsSense
                         if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_mods_gear.png"))
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_mods_gear.png"];
-                            useNewSize = true;
                         }
                         break;
                     case ESenseItemType.VitalParts:
@@ -1011,7 +1162,6 @@ namespace AmandsSense
                         if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_mods_vital.png"))
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_mods_vital.png"];
-                            useNewSize = true;
                         }
                         break;
                     case ESenseItemType.MeleeWeapons:
@@ -1019,7 +1169,6 @@ namespace AmandsSense
                         if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_weapons_melee.png"))
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_weapons_melee.png"];
-                            useNewSize = true;
                         }
                         break;
                     case ESenseItemType.Throwables:
@@ -1027,7 +1176,6 @@ namespace AmandsSense
                         if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_weapons_throw.png"))
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_weapons_throw.png"];
-                            useNewSize = true;
                         }
                         break;
                     case ESenseItemType.AmmoPacks:
@@ -1035,7 +1183,6 @@ namespace AmandsSense
                         if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_ammo_boxes.png"))
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_ammo_boxes.png"];
-                            useNewSize = true;
                         }
                         break;
                     case ESenseItemType.Rounds:
@@ -1043,7 +1190,6 @@ namespace AmandsSense
                         if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_ammo_rounds.png"))
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_ammo_rounds.png"];
-                            useNewSize = true;
                         }
                         break;
                     case ESenseItemType.Drinks:
@@ -1051,7 +1197,6 @@ namespace AmandsSense
                         if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_provisions_drinks.png"))
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_provisions_drinks.png"];
-                            useNewSize = true;
                         }
                         break;
                     case ESenseItemType.Food:
@@ -1059,7 +1204,6 @@ namespace AmandsSense
                         if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_provisions_food.png"))
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_provisions_food.png"];
-                            useNewSize = true;
                         }
                         break;
                     case ESenseItemType.Injectors:
@@ -1067,7 +1211,6 @@ namespace AmandsSense
                         if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_medical_injectors.png"))
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_medical_injectors.png"];
-                            useNewSize = true;
                         }
                         break;
                     case ESenseItemType.InjuryTreatment:
@@ -1075,7 +1218,6 @@ namespace AmandsSense
                         if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_medical_injury.png"))
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_medical_injury.png"];
-                            useNewSize = true;
                         }
                         break;
                     case ESenseItemType.Medkits:
@@ -1083,7 +1225,6 @@ namespace AmandsSense
                         if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_medical_medkits.png"))
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_medical_medkits.png"];
-                            useNewSize = true;
                         }
                         break;
                     case ESenseItemType.Pills:
@@ -1091,7 +1232,6 @@ namespace AmandsSense
                         if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_medical_pills.png"))
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_medical_pills.png"];
-                            useNewSize = true;
                         }
                         break;
                     case ESenseItemType.ElectronicKeys:
@@ -1099,7 +1239,6 @@ namespace AmandsSense
                         if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_keys_electronic.png"))
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_keys_electronic.png"];
-                            useNewSize = true;
                         }
                         break;
                     case ESenseItemType.MechanicalKeys:
@@ -1107,22 +1246,13 @@ namespace AmandsSense
                         if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_keys_mechanic.png"))
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_keys_mechanic.png"];
-                            useNewSize = true;
                         }
                         break;
                     case ESenseItemType.InfoItems:
-                        if (observedLootItem.Item.QuestItem)
-                        {
-                            color = AmandsSensePlugin.QuestItemsColor.Value;
-                        }
-                        else
-                        {
-                            color = AmandsSensePlugin.InfoItemsColor.Value;
-                        }
+                        color = AmandsSensePlugin.InfoItemsColor.Value;
                         if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_info.png"))
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_info.png"];
-                            useNewSize = true;
                         }
                         break;
                     case ESenseItemType.SpecialEquipment:
@@ -1130,7 +1260,6 @@ namespace AmandsSense
                         if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_spec.png"))
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_spec.png"];
-                            useNewSize = true;
                         }
                         break;
                     case ESenseItemType.Maps:
@@ -1138,7 +1267,6 @@ namespace AmandsSense
                         if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_maps.png"))
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_maps.png"];
-                            useNewSize = true;
                         }
                         break;
                     case ESenseItemType.Money:
@@ -1146,10 +1274,14 @@ namespace AmandsSense
                         if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_money.png"))
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_money.png"];
-                            useNewSize = true;
                         }
                         break;
                 }
+
+                // Quest SenseItem Color
+                if (observedLootItem.Item.QuestItem) color = AmandsSensePlugin.QuestItemsColor.Value;
+
+                // JSON SenseItem Color
                 if (AmandsSenseClass.itemsJsonClass != null)
                 {
                     if (AmandsSenseClass.itemsJsonClass.KappaItems != null)
@@ -1159,7 +1291,7 @@ namespace AmandsSense
                             color = AmandsSensePlugin.KappaItemsColor.Value;
                         }
                     }
-                    if (!observedLootItem.Item.CanSellOnRagfair && !AmandsSenseClass.itemsJsonClass.NonFleaExclude.Contains(observedLootItem.Item.TemplateId))
+                    if (AmandsSensePlugin.EnableFlea.Value && !observedLootItem.Item.CanSellOnRagfair && !AmandsSenseClass.itemsJsonClass.NonFleaExclude.Contains(observedLootItem.Item.TemplateId))
                     {
                         color = AmandsSensePlugin.NonFleaItemsColor.Value;
                     }
@@ -1175,126 +1307,162 @@ namespace AmandsSense
                         }
                     }
                 }
-                ItemSound = observedLootItem.Item.ItemSound;
-                spriteRenderer = gameObject.AddComponent<SpriteRenderer>();
+
+                if (AmandsSensePlugin.UseBackgroundColor.Value) color = AmandsSenseHelper.ToColor(observedLootItem.Item.BackgroundColor);
+
+                // SenseItem Sprite
                 if (spriteRenderer != null)
                 {
-                    light = gameObject.AddComponent<Light>();
-                    if (light != null)
-                    {
-                        light.color = new Color(color.r, color.g, color.b, 1f);
-                        light.shadows = LightShadows.None;
-                        light.intensity = 0f;
-                        light.range = AmandsSensePlugin.LightRange.Value;
-                    }
                     spriteRenderer.sprite = sprite;
                     spriteRenderer.color = new Color(color.r, color.g, color.b, 0f);
-                    transform.LookAt(Camera.main.transform.position, Vector3.up);
-                    transform.localScale = (useNewSize ? AmandsSensePlugin.NewSize.Value : AmandsSensePlugin.Size.Value) * Mathf.Min(AmandsSensePlugin.SizeClamp.Value, Vector3.Distance(Camera.main.transform.position, transform.position));
-                    UpdateOpacity = true;
-                    AudioClip itemClip = Singleton<GUISounds>.Instance.GetItemClip(ItemSound, EInventorySoundType.pickup);
+                }
+
+                // SenseItem Light
+                if (light != null)
+                {
+                    light.color = new Color(color.r, color.g, color.b, 1f);
+                    light.intensity = 0f;
+                    light.range = AmandsSensePlugin.LightRange.Value;
+                }
+
+                // SenseItem Type
+                if (typeText != null)
+                {
+                    typeText.fontSize = 0.5f;
+                    typeText.text = eSenseItemType.ToString();
+                    typeText.color = new Color(color.r, color.g, color.b, 0f);
+                }
+
+                if (AmandsSenseClass.inventoryControllerClass != null && !AmandsSenseClass.inventoryControllerClass.Examined(observedLootItem.Item))
+                {
+                    // SenseItem Unexamined Name
+                    if (nameText != null)
+                    {
+                        nameText.fontSize = 1f;
+                        nameText.text = "<b>???</b>";
+                        nameText.color = new Color(textColor.r, textColor.g, textColor.b, 0f);
+                    }
+                    // SenseItem Unexamined Description
+                    if (descriptionText != null)
+                    {
+                        descriptionText.text = "";
+                        descriptionText.fontSize = 0.75f;
+                        descriptionText.color = new Color(textColor.r, textColor.g, textColor.b, 0f);
+                    }
+                }
+                else
+                {
+                    // SenseItem Name
+                    if (nameText != null)
+                    {
+                        nameText.fontSize = 1f;
+                        string Name = "<b>" + AmandsSenseHelper.Localized(observedLootItem.Item.Name, 0) + "</b>";
+                        if (Name.Count() > 16) Name = "<b>" + AmandsSenseHelper.Localized(observedLootItem.Item.ShortName, 0) + "</b>";
+                        if (observedLootItem.Item.StackObjectsCount > 1) Name = Name + " (" + observedLootItem.Item.StackObjectsCount + ")";
+                        nameText.text = Name + "<color=#" + ColorUtility.ToHtmlStringRGB(color) + ">" + "<size=50%><voffset=0.5em> " + observedLootItem.Item.Weight + "kg";
+                        nameText.color = new Color(textColor.r, textColor.g, textColor.b, 0f);
+                    }
+
+                    // SenseItem Description
+                    if (descriptionText != null)
+                    {
+                        FoodDrinkComponent foodDrinkComponent;
+                        if (observedLootItem.Item.TryGetItemComponent(out foodDrinkComponent) && ((int)foodDrinkComponent.MaxResource) > 1)
+                        {
+                            descriptionText.text = ((int)foodDrinkComponent.HpPercent) + "/" + ((int)foodDrinkComponent.MaxResource);
+                        }
+                        KeyComponent keyComponent;
+                        if (observedLootItem.Item.TryGetItemComponent(out keyComponent))
+                        {
+                            int MaximumNumberOfUsage = Traverse.Create(Traverse.Create(keyComponent).Field("Template").GetValue<object>()).Field("MaximumNumberOfUsage").GetValue<int>();
+                            descriptionText.text = (MaximumNumberOfUsage - keyComponent.NumberOfUsages) + "/" + MaximumNumberOfUsage;
+                        }
+                        MedKitComponent medKitComponent;
+                        if (observedLootItem.Item.TryGetItemComponent(out medKitComponent) && medKitComponent.MaxHpResource > 1)
+                        {
+                            descriptionText.text = ((int)medKitComponent.HpResource) + "/" + medKitComponent.MaxHpResource;
+                        }
+                        RepairableComponent repairableComponent;
+                        if (observedLootItem.Item.TryGetItemComponent(out repairableComponent))
+                        {
+                            descriptionText.text = ((int)repairableComponent.Durability) + "/" + ((int)repairableComponent.MaxDurability);
+                        }
+                        MagazineClass magazineClass = observedLootItem.Item as MagazineClass;
+                        if (magazineClass != null)
+                        {
+                            descriptionText.text = magazineClass.Count + "/" + magazineClass.MaxCount;
+                        }
+                        descriptionText.fontSize = 0.75f;
+                        descriptionText.color = new Color(textColor.r, textColor.g, textColor.b, 0f);
+                    }
+                }
+
+                // SenseItem Sound
+                if (!AmandsSensePlugin.SenseAlwaysOn.Value)
+                {
+                    AudioClip itemClip = Singleton<GUISounds>.Instance.GetItemClip(observedLootItem.Item.ItemSound, EInventorySoundType.pickup);
                     if (itemClip != null)
                     {
-                        Singleton<BetterAudio>.Instance.PlayAtPoint(transform.position, itemClip, AmandsSensePlugin.AudioDistance.Value, BetterAudio.AudioSourceGroupType.Character, AmandsSensePlugin.AudioRolloff.Value, AmandsSensePlugin.AudioVolume.Value, EOcclusionTest.Regular);
+                        Singleton<BetterAudio>.Instance.PlayAtPoint(transform.position, itemClip, AmandsSensePlugin.AudioDistance.Value, BetterAudio.AudioSourceGroupType.Environment, AmandsSensePlugin.AudioRolloff.Value, AmandsSensePlugin.AudioVolume.Value, EOcclusionTest.Fast);
                     }
-                    await Task.Delay((int)(AmandsSensePlugin.Duration.Value * 1000));
-                    UpdateOpacity = true;
-                    StartOpacity = false;
-                }
-                else
-                {
-                    AmandsSenseClass.onItemsSensesRemove(Id);
-                    AmandsSenseClass.ItemsSenses.Remove(Id);
-                    Destroy(gameObject);
                 }
             }
-            else
+            else if (amandsSenseWorld != null)
             {
-                AmandsSenseClass.onItemsSensesRemove(Id);
-                AmandsSenseClass.ItemsSenses.Remove(Id);
-                Destroy(gameObject);
+                amandsSenseWorld.CancelSense();
             }
         }
-        public void Update()
+
+        public override void UpdateIntensity(float Intensity)
         {
-            if (Camera.main != null)
+            if (spriteRenderer != null)
             {
-                transform.LookAt(Camera.main.transform.position, Vector3.up);
-                transform.localScale = (useNewSize ? AmandsSensePlugin.NewSize.Value : AmandsSensePlugin.Size.Value) * Mathf.Min(AmandsSensePlugin.SizeClamp.Value, Vector3.Distance(Camera.main.transform.position, transform.position));
+                spriteRenderer.color = new Color(color.r, color.g, color.b, color.a * Intensity);
             }
-            if (UpdateOpacity)
+            if (light != null)
             {
-                if (StartOpacity)
-                {
-                    Opacity += AmandsSensePlugin.OpacitySpeed.Value * Time.deltaTime;
-                    if (Opacity >= 1f)
-                    {
-                        UpdateOpacity = false;
-                        StartOpacity = false;
-                    }
-                }
-                else
-                {
-                    Opacity -= AmandsSensePlugin.OpacitySpeed.Value * Time.deltaTime;
-                    if (Opacity <= 0f)
-                    {
-                        UpdateOpacity = false;
-                        AmandsSenseClass.ItemsSenses.Remove(Id);
-                        Destroy(gameObject);
-                    }
-                }
-                if (spriteRenderer != null && light != null)
-                {
-                    spriteRenderer.color = new Color(color.r, color.g, color.b, color.a * Opacity);
-                    light.intensity = AmandsSensePlugin.LightIntensity.Value * Opacity;
-                }
+                light.intensity = AmandsSensePlugin.LightIntensity.Value * Intensity;
             }
+            if (typeText != null)
+            {
+                typeText.color = new Color(color.r, color.g, color.b, Intensity);
+            }
+            if (nameText != null)
+            {
+                nameText.color = new Color(textColor.r, textColor.g, textColor.b, Intensity);
+            }
+            if (descriptionText != null)
+            {
+                descriptionText.color = new Color(textColor.r, textColor.g, textColor.b, Intensity);
+            }
+        }
+        public override void RemoveSense()
+        {
+            //Destroy(gameObject);
         }
     }
-    public class AmandsSenseContainer : MonoBehaviour
+
+    public class AmandsSenseContainer : AmandsSenseConstructor
     {
         public LootableContainer lootableContainer;
         public bool emptyLootableContainer = false;
         public int itemCount = 0;
-        public string Id;
-        public SpriteRenderer spriteRenderer;
-        public Sprite sprite;
-        public Light light;
-        public Color color = AmandsSensePlugin.LootableContainerColor.Value;
-        public bool useNewSize = false;
+        public string ContainerId;
+        public bool Drawer;
 
-        public float Delay = 0f;
-        private bool UpdateOpacity = false;
-        private bool StartOpacity = true;
-        private float Opacity = 0f;
+        public override void SetSense(LootableContainer LootableContainer)
+        {
+            lootableContainer = LootableContainer;
+            if (lootableContainer != null && lootableContainer.gameObject.activeSelf)
+            {
+                Drawer = amandsSenseWorld.eSenseWorldType == ESenseWorldType.Drawer;
+                // SenseContainer Defaults
+                emptyLootableContainer = false;
+                itemCount = 0;
 
-        public void Start()
-        {
-            if (AmandsSenseClass.ItemsSenses.Contains(Id))
-            {
-                Destroy(gameObject);
-            }
-            else
-            {
-                AmandsSenseClass.ItemsSenses.Add(Id);
-                WaitAndStart();
-            }
-        }
-        private async void WaitAndStart()
-        {
-            await Task.Delay((int)(Delay * 1000));
-            if (lootableContainer != null && lootableContainer.gameObject.activeSelf && AmandsSenseClass.localPlayer != null && lootableContainer.transform.position.y > AmandsSenseClass.localPlayer.Position.y + AmandsSensePlugin.MinHeight.Value && lootableContainer.transform.position.y < AmandsSenseClass.localPlayer.Position.y + AmandsSensePlugin.MaxHeight.Value)
-            {
-                BoxCollider boxCollider = lootableContainer.gameObject.GetComponent<BoxCollider>();
-                if (boxCollider != null)
-                {
-                    Vector3 position = boxCollider.transform.TransformPoint(boxCollider.center);
-                    gameObject.transform.position = new Vector3(position.x, boxCollider.ClosestPoint(position + (Vector3.up * 100f)).y + AmandsSensePlugin.NormalSize.Value, position.z);
-                }
-                else
-                {
-                    gameObject.transform.position = lootableContainer.transform.position + (Vector3.up * AmandsSensePlugin.NormalSize.Value);
-                }
+                ContainerId = lootableContainer.Id;
+
+                // SenseContainer Items
                 ESenseItemColor eSenseItemColor = ESenseItemColor.Default;
                 if (lootableContainer.ItemOwner != null && AmandsSenseClass.itemsJsonClass != null && AmandsSenseClass.itemsJsonClass.RareItems != null && AmandsSenseClass.itemsJsonClass.KappaItems != null && AmandsSenseClass.itemsJsonClass.NonFleaExclude != null && AmandsSenseClass.localPlayer.Profile != null && AmandsSenseClass.localPlayer.Profile.WishList != null)
                 {
@@ -1322,11 +1490,11 @@ namespace AmandsSense
                                         }
                                         else if (item.Template != null && !item.Template.CanSellOnRagfair && !AmandsSenseClass.itemsJsonClass.NonFleaExclude.Contains(item.TemplateId) && eSenseItemColor != ESenseItemColor.Rare && eSenseItemColor != ESenseItemColor.WishList)
                                         {
-                                            if (!AmandsSensePlugin.NonFleaAmmo.Value && TemplateIdToObjectMappingsClass.TypeTable["5485a8684bdc2da71d8b4567"].IsAssignableFrom(item.GetType()))
+                                            if (!AmandsSensePlugin.FleaIncludeAmmo.Value && TemplateIdToObjectMappingsClass.TypeTable["5485a8684bdc2da71d8b4567"].IsAssignableFrom(item.GetType()))
                                             {
                                                 continue;
                                             }
-                                            else
+                                            else if (AmandsSensePlugin.EnableFlea.Value)
                                             {
                                                 eSenseItemColor = ESenseItemColor.NonFlea;
                                             }
@@ -1341,162 +1509,304 @@ namespace AmandsSense
                         }
                     }
                 }
-                if (itemCount != 0)
+                if (itemCount == 0)
                 {
-                    AmandsSenseClass.onContainerSensesAdded(Id, gameObject.transform.position);
-                    if (AmandsSenseClass.LoadedSprites.ContainsKey("LootableContainer.png"))
-                    {
-                        sprite = AmandsSenseClass.LoadedSprites["LootableContainer.png"];
-                    }
-                    switch (eSenseItemColor)
-                    {
-                        case ESenseItemColor.Kappa:
-                            color = AmandsSensePlugin.KappaItemsColor.Value;
-                            break;
-                        case ESenseItemColor.NonFlea:
-                            color = AmandsSensePlugin.NonFleaItemsColor.Value;
-                            if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_barter.png"))
-                            {
-                                sprite = AmandsSenseClass.LoadedSprites["icon_barter.png"];
-                                useNewSize = true;
-                            }
-                            break;
-                        case ESenseItemColor.WishList:
-                            color = AmandsSensePlugin.WishListItemsColor.Value;
-                            if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_fav_checked.png"))
-                            {
-                                sprite = AmandsSenseClass.LoadedSprites["icon_fav_checked.png"];
-                                useNewSize = true;
-                            }
-                            break;
-                        case ESenseItemColor.Rare:
-                            color = AmandsSensePlugin.RareItemsColor.Value;
-                            break;
-                    }
-                    spriteRenderer = gameObject.AddComponent<SpriteRenderer>();
-                    if (spriteRenderer != null)
-                    {
-                        light = gameObject.AddComponent<Light>();
-                        if (light != null)
-                        {
-                            light.color = new Color(color.r, color.g, color.b, 1f);
-                            light.shadows = LightShadows.None;
-                            light.intensity = 0f;
-                            light.range = AmandsSensePlugin.LightRange.Value;
-                        }
-                        spriteRenderer.sprite = sprite;
-                        spriteRenderer.color = new Color(color.r, color.g, color.b, 0f);
-                        transform.LookAt(Camera.main.transform.position, Vector3.up);
-                        transform.localScale = (useNewSize ? AmandsSensePlugin.NewSize.Value : AmandsSensePlugin.Size.Value) * Mathf.Min(AmandsSensePlugin.SizeClamp.Value, Vector3.Distance(Camera.main.transform.position, transform.position));
-                        UpdateOpacity = true;
-                        if (lootableContainer.OpenSound.Length > 0)
-                        {
-                            AudioClip OpenSound = lootableContainer.OpenSound[0];
-                            if (OpenSound != null)
-                            {
-                                Singleton<BetterAudio>.Instance.PlayAtPoint(transform.position, OpenSound, AmandsSensePlugin.AudioDistance.Value, BetterAudio.AudioSourceGroupType.Character, AmandsSensePlugin.AudioRolloff.Value, AmandsSensePlugin.AudioVolume.Value, EOcclusionTest.Regular);
-                            }
-                        }
-                        await Task.Delay((int)(AmandsSensePlugin.Duration.Value * 1000));
-                        UpdateOpacity = true;
-                        StartOpacity = false;
-                    }
-                    else
-                    {
-                        AmandsSenseClass.ItemsSenses.Remove(Id);
-                        Destroy(gameObject);
-                    }
+                    amandsSenseWorld.CancelSense();
+                    return;
                 }
-                else
+
+                // SenseContainer Color and Sprite
+                if (AmandsSenseClass.LoadedSprites.ContainsKey("LootableContainer.png"))
                 {
-                    AmandsSenseClass.ItemsSenses.Remove(Id);
-                    Destroy(gameObject);
+                    sprite = AmandsSenseClass.LoadedSprites["LootableContainer.png"];
+                }
+                switch (eSenseItemColor)
+                {
+                    case ESenseItemColor.Default:
+                        color = AmandsSensePlugin.ObservedLootItemColor.Value;
+                        break;
+                    case ESenseItemColor.Kappa:
+                        color = AmandsSensePlugin.KappaItemsColor.Value;
+                        break;
+                    case ESenseItemColor.NonFlea:
+                        color = AmandsSensePlugin.NonFleaItemsColor.Value;
+                        if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_barter.png"))
+                        {
+                            sprite = AmandsSenseClass.LoadedSprites["icon_barter.png"];
+                        }
+                        break;
+                    case ESenseItemColor.WishList:
+                        color = AmandsSensePlugin.WishListItemsColor.Value;
+                        if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_fav_checked.png"))
+                        {
+                            sprite = AmandsSenseClass.LoadedSprites["icon_fav_checked.png"];
+                        }
+                        break;
+                    case ESenseItemColor.Rare:
+                        color = AmandsSensePlugin.RareItemsColor.Value;
+                        break;
+                }
+
+                // SenseContainer Sprite
+                if (spriteRenderer != null)
+                {
+                    spriteRenderer.sprite = sprite;
+                    spriteRenderer.color = new Color(color.r, color.g, color.b, 0f);
+                }
+
+                // SenseContainer Light
+                if (light != null)
+                {
+                    light.color = new Color(color.r, color.g, color.b, 1f);
+                    light.intensity = 0f;
+                    light.range = AmandsSensePlugin.LightRange.Value;
+                }
+
+                // SenseContainer Type
+                if (typeText != null)
+                {
+                    typeText.fontSize = 0.5f;
+                    typeText.text = "Container";
+                    typeText.color = new Color(color.r, color.g, color.b, 0f);
+                }
+
+                // SenseContainer Name
+                if (nameText != null)
+                {
+                    nameText.fontSize = 1f;
+                    //nameText.text = "Name";
+                    nameText.text = "<b>" + lootableContainer.ItemOwner.ContainerName + "</b>";
+                    nameText.color = new Color(textColor.r, textColor.g, textColor.b, 0f);
+                }
+
+                // SenseContainer Description
+                if (descriptionText != null)
+                {
+                    descriptionText.fontSize = 0.75f;
+                    descriptionText.text = itemCount + (itemCount > 1 ? " Items" : " Item");
+                    descriptionText.color = new Color(textColor.r, textColor.g, textColor.b, 0f);
+                }
+
+                // SenseContainer Sound
+                if (!AmandsSensePlugin.SenseAlwaysOn.Value && !Drawer && lootableContainer.OpenSound.Length > 0)
+                {
+                    AudioClip OpenSound = lootableContainer.OpenSound[0];
+                    if (OpenSound != null)
+                    {
+                        Singleton<BetterAudio>.Instance.PlayAtPoint(transform.position, OpenSound, AmandsSensePlugin.AudioDistance.Value, BetterAudio.AudioSourceGroupType.Environment, AmandsSensePlugin.AudioRolloff.Value, AmandsSensePlugin.AudioVolume.Value, EOcclusionTest.Fast);
+                    }
                 }
             }
-            else
+            else if (amandsSenseWorld != null)
             {
-                AmandsSenseClass.ItemsSenses.Remove(Id);
-                Destroy(gameObject);
+                amandsSenseWorld.CancelSense();
             }
         }
-        public void Update()
+        public override void UpdateSense()
         {
-            if (Camera.main != null)
+            if (lootableContainer != null && lootableContainer.gameObject.activeSelf)
             {
-                transform.LookAt(Camera.main.transform.position, Vector3.up);
-                transform.localScale = (useNewSize ? AmandsSensePlugin.NewSize.Value : AmandsSensePlugin.Size.Value) * Mathf.Min(AmandsSensePlugin.SizeClamp.Value, Vector3.Distance(Camera.main.transform.position, transform.position));
-            }
-            if (UpdateOpacity)
-            {
-                if (StartOpacity)
+                // SenseContainer Defaults
+                emptyLootableContainer = false;
+                itemCount = 0;
+
+                ContainerId = lootableContainer.Id;
+
+                // SenseContainer Items
+                ESenseItemColor eSenseItemColor = ESenseItemColor.Default;
+                if (lootableContainer.ItemOwner != null && AmandsSenseClass.itemsJsonClass != null && AmandsSenseClass.itemsJsonClass.RareItems != null && AmandsSenseClass.itemsJsonClass.KappaItems != null && AmandsSenseClass.itemsJsonClass.NonFleaExclude != null && AmandsSenseClass.localPlayer.Profile != null && AmandsSenseClass.localPlayer.Profile.WishList != null)
                 {
-                    Opacity += AmandsSensePlugin.OpacitySpeed.Value * Time.deltaTime;
-                    if (Opacity >= 1f)
+                    LootItemClass lootItemClass = lootableContainer.ItemOwner.RootItem as LootItemClass;
+                    if (lootItemClass != null)
                     {
-                        UpdateOpacity = false;
-                        StartOpacity = false;
+                        object[] Grids = Traverse.Create(lootItemClass).Field("Grids").GetValue<object[]>();
+                        if (Grids != null)
+                        {
+                            foreach (object grid in Grids)
+                            {
+                                IEnumerable<Item> Items = Traverse.Create(grid).Property("Items").GetValue<IEnumerable<Item>>();
+                                if (Items != null)
+                                {
+                                    foreach (Item item in Items)
+                                    {
+                                        itemCount += 1;
+                                        if (AmandsSenseClass.itemsJsonClass.RareItems.Contains(item.TemplateId))
+                                        {
+                                            eSenseItemColor = ESenseItemColor.Rare;
+                                        }
+                                        else if (AmandsSenseClass.localPlayer.Profile.WishList.Contains(item.TemplateId) && eSenseItemColor != ESenseItemColor.Rare)
+                                        {
+                                            eSenseItemColor = ESenseItemColor.WishList;
+                                        }
+                                        else if (item.Template != null && !item.Template.CanSellOnRagfair && !AmandsSenseClass.itemsJsonClass.NonFleaExclude.Contains(item.TemplateId) && eSenseItemColor != ESenseItemColor.Rare && eSenseItemColor != ESenseItemColor.WishList)
+                                        {
+                                            if (!AmandsSensePlugin.FleaIncludeAmmo.Value && TemplateIdToObjectMappingsClass.TypeTable["5485a8684bdc2da71d8b4567"].IsAssignableFrom(item.GetType()))
+                                            {
+                                                continue;
+                                            }
+                                            else if (AmandsSensePlugin.EnableFlea.Value)
+                                            {
+                                                eSenseItemColor = ESenseItemColor.NonFlea;
+                                            }
+                                        }
+                                        else if (AmandsSenseClass.itemsJsonClass.KappaItems.Contains(item.TemplateId) && eSenseItemColor == ESenseItemColor.Default)
+                                        {
+                                            eSenseItemColor = ESenseItemColor.Kappa;
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
-                else
+                if (itemCount == 0)
                 {
-                    Opacity -= AmandsSensePlugin.OpacitySpeed.Value * Time.deltaTime;
-                    if (Opacity <= 0f)
-                    {
-                        UpdateOpacity = false;
-                        AmandsSenseClass.ItemsSenses.Remove(Id);
-                        Destroy(gameObject);
-                    }
+                    amandsSenseWorld.CancelSense();
+                    return;
                 }
-                if (spriteRenderer != null && light != null)
+
+                // SenseContainer Color and Sprite
+                if (AmandsSenseClass.LoadedSprites.ContainsKey("LootableContainer.png"))
                 {
-                    spriteRenderer.color = new Color(color.r, color.g, color.b, color.a * Opacity);
-                    light.intensity = AmandsSensePlugin.LightIntensity.Value * Opacity;
+                    sprite = AmandsSenseClass.LoadedSprites["LootableContainer.png"];
+                }
+                switch (eSenseItemColor)
+                {
+                    case ESenseItemColor.Default:
+                        color = AmandsSensePlugin.ObservedLootItemColor.Value;
+                        break;
+                    case ESenseItemColor.Kappa:
+                        color = AmandsSensePlugin.KappaItemsColor.Value;
+                        break;
+                    case ESenseItemColor.NonFlea:
+                        color = AmandsSensePlugin.NonFleaItemsColor.Value;
+                        if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_barter.png"))
+                        {
+                            sprite = AmandsSenseClass.LoadedSprites["icon_barter.png"];
+                        }
+                        break;
+                    case ESenseItemColor.WishList:
+                        color = AmandsSensePlugin.WishListItemsColor.Value;
+                        if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_fav_checked.png"))
+                        {
+                            sprite = AmandsSenseClass.LoadedSprites["icon_fav_checked.png"];
+                        }
+                        break;
+                    case ESenseItemColor.Rare:
+                        color = AmandsSensePlugin.RareItemsColor.Value;
+                        break;
+                }
+
+                // SenseContainer Sprite
+                if (spriteRenderer != null)
+                {
+                    spriteRenderer.sprite = sprite;
+                    spriteRenderer.color = new Color(color.r, color.g, color.b, spriteRenderer.color.a);
+                }
+
+                // SenseContainer Light
+                if (light != null)
+                {
+                    light.color = new Color(color.r, color.g, color.b, 1f);
+                    light.range = AmandsSensePlugin.LightRange.Value;
+                }
+
+                // SenseContainer Type
+                if (typeText != null)
+                {
+                    typeText.fontSize = 0.5f;
+                    //typeText.text = "Type";
+                    typeText.color = new Color(color.r, color.g, color.b, typeText.color.a);
+                }
+
+                // SenseContainer Name
+                if (nameText != null)
+                {
+                    nameText.fontSize = 1f;
+                    //nameText.text = "Name";
+                    nameText.color = new Color(textColor.r, textColor.g, textColor.b, nameText.color.a);
+                }
+
+                // SenseContainer Description
+                if (descriptionText != null)
+                {
+                    descriptionText.fontSize = 0.75f;
+                    descriptionText.text = itemCount + (itemCount > 1 ? " Items" : " Item");
+                    descriptionText.color = new Color(textColor.r, textColor.g, textColor.b, descriptionText.color.a);
                 }
             }
+            else if (amandsSenseWorld != null)
+            {
+                amandsSenseWorld.CancelSense();
+            }
+        }
+        public override void UpdateIntensity(float Intensity)
+        {
+            if (spriteRenderer != null)
+            {
+                spriteRenderer.color = new Color(color.r, color.g, color.b, color.a * Intensity);
+            }
+            if (light != null)
+            {
+                light.intensity = AmandsSensePlugin.LightIntensity.Value * Intensity * (Drawer ? 0.25f : 1f);
+            }
+            if (typeText != null)
+            {
+                typeText.color = new Color(color.r, color.g, color.b, Intensity);
+            }
+            if (nameText != null)
+            {
+                nameText.color = new Color(textColor.r, textColor.g, textColor.b, Intensity);
+            }
+            if (descriptionText != null)
+            {
+                descriptionText.color = new Color(textColor.r, textColor.g, textColor.b, Intensity);
+            }
+        }
+        public override void RemoveSense()
+        {
+            //Destroy(gameObject);
         }
     }
-    public class AmandsSenseDeadbody : MonoBehaviour
+    public class AmandsSenseDeadPlayer : AmandsSenseConstructor
     {
+        public LocalPlayer DeadPlayer;
         public Corpse corpse;
-        public BodyPartCollider bodyPartCollider;
-        public bool emptyCorpse = true;
-        public string Id;
-        public SpriteRenderer spriteRenderer;
-        public Sprite sprite;
-        public Light light;
-        public Color color = AmandsSensePlugin.LootableContainerColor.Value;
-        public bool useNewSize = false;
 
-        public float Delay = 0f;
-        private bool UpdateOpacity = false;
-        private bool StartOpacity = true;
-        private float Opacity = 0f;
+        public bool emptyDeadPlayer = true;
+        public string Name;
+        public string RoleName;
 
-        public void Start()
+        public override void SetSense(LocalPlayer LocalPlayer)
         {
-            if (AmandsSenseClass.ItemsSenses.Contains(Id))
+            DeadPlayer = LocalPlayer;
+            if (DeadPlayer != null && DeadPlayer.gameObject.activeSelf)
             {
-                Destroy(gameObject);
-            }
-            else
-            {
-                AmandsSenseClass.ItemsSenses.Add(Id);
-                WaitAndStart();
-            }
-        }
-        private async void WaitAndStart()
-        {
-            await Task.Delay((int)(Delay * 1000));
-            if (corpse != null && corpse.gameObject.activeSelf && bodyPartCollider != null && bodyPartCollider.gameObject.activeSelf && bodyPartCollider.Collider != null && AmandsSenseClass.localPlayer != null && bodyPartCollider.Collider.transform.position.y > AmandsSenseClass.localPlayer.Position.y + AmandsSensePlugin.MinHeight.Value && bodyPartCollider.Collider.transform.position.y < AmandsSenseClass.localPlayer.Position.y + AmandsSensePlugin.MaxHeight.Value)
-            {
-                gameObject.transform.position = bodyPartCollider.Collider.transform.position + (Vector3.up * AmandsSensePlugin.NormalSize.Value) + (Vector3.up * 0.5f);
+                corpse = DeadPlayer.gameObject.transform.GetComponent<Corpse>();
+                // SenseDeadPlayer Defaults
+                emptyDeadPlayer = false;
                 ESenseItemColor eSenseItemColor = ESenseItemColor.Default;
+
                 if (AmandsSenseClass.itemsJsonClass != null && AmandsSenseClass.itemsJsonClass.RareItems != null && AmandsSenseClass.itemsJsonClass.KappaItems != null && AmandsSenseClass.itemsJsonClass.NonFleaExclude != null && AmandsSenseClass.localPlayer != null && AmandsSenseClass.localPlayer.Profile != null && AmandsSenseClass.localPlayer.Profile.WishList != null)
                 {
-                    LocalPlayer localPlayer = corpse.gameObject.GetComponent<LocalPlayer>();
-                    if (localPlayer != null && localPlayer.Profile != null)
+                    if (DeadPlayer.Profile != null)
                     {
-                        object Inventory = Traverse.Create(localPlayer.Profile).Field("Inventory").GetValue();
+                        switch (DeadPlayer.Side)
+                        {
+                            case EPlayerSide.Usec:
+                                RoleName = "USEC";
+                                Name = DeadPlayer.Profile.Nickname;
+                                break;
+                            case EPlayerSide.Bear:
+                                RoleName = "BEAR";
+                                Name = DeadPlayer.Profile.Nickname;
+                                break;
+                            case EPlayerSide.Savage:
+                                RoleName = AmandsSenseHelper.Localized(AmandsSenseHelper.GetScavRoleKey(Traverse.Create(Traverse.Create(DeadPlayer.Profile.Info).Field("Settings").GetValue<object>()).Field("Role").GetValue<WildSpawnType>()), EStringCase.Upper);
+                                Name = AmandsSenseHelper.Transliterate(DeadPlayer.Profile.Nickname);
+                                break;
+                        }
+                        object Inventory = Traverse.Create(DeadPlayer.Profile).Field("Inventory").GetValue();
                         if (Inventory != null)
                         {
                             IEnumerable<Item> AllRealPlayerItems = Traverse.Create(Inventory).Property("AllRealPlayerItems").GetValue<IEnumerable<Item>>();
@@ -1531,9 +1841,9 @@ namespace AmandsSense
                                             }
                                         }
                                     }
-                                    if (emptyCorpse)
+                                    if (emptyDeadPlayer)
                                     {
-                                        emptyCorpse = false;
+                                        emptyDeadPlayer = false;
                                     }
                                     if (AmandsSenseClass.itemsJsonClass.RareItems.Contains(item.TemplateId))
                                     {
@@ -1545,11 +1855,11 @@ namespace AmandsSense
                                     }
                                     else if (item.Template != null && !item.Template.CanSellOnRagfair && !AmandsSenseClass.itemsJsonClass.NonFleaExclude.Contains(item.TemplateId) && eSenseItemColor != ESenseItemColor.Rare && eSenseItemColor != ESenseItemColor.WishList)
                                     {
-                                        if (!AmandsSensePlugin.NonFleaAmmo.Value && TemplateIdToObjectMappingsClass.TypeTable["5485a8684bdc2da71d8b4567"].IsAssignableFrom(item.GetType()))
+                                        if (!AmandsSensePlugin.FleaIncludeAmmo.Value && TemplateIdToObjectMappingsClass.TypeTable["5485a8684bdc2da71d8b4567"].IsAssignableFrom(item.GetType()))
                                         {
                                             continue;
                                         }
-                                        else
+                                        else if (AmandsSensePlugin.EnableFlea.Value)
                                         {
                                             eSenseItemColor = ESenseItemColor.NonFlea;
                                         }
@@ -1563,126 +1873,627 @@ namespace AmandsSense
                         }
                     }
                 }
-                if (!emptyCorpse)
+
+                switch (DeadPlayer.Side)
                 {
-                    switch (corpse.Side)
-                    {
-                        case EPlayerSide.Usec:
-                            if (AmandsSenseClass.LoadedSprites.ContainsKey("Usec.png"))
-                            {
-                                sprite = AmandsSenseClass.LoadedSprites["Usec.png"];
-                            }
-                            break;
-                        case EPlayerSide.Bear:
-                            if (AmandsSenseClass.LoadedSprites.ContainsKey("Bear.png"))
-                            {
-                                sprite = AmandsSenseClass.LoadedSprites["Bear.png"];
-                            }
-                            break;
-                        case EPlayerSide.Savage:
-                            if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_kills_big.png"))
-                            {
-                                sprite = AmandsSenseClass.LoadedSprites["icon_kills_big.png"];
-                                useNewSize = true;
-                            }
-                            break;
-                    }
-                    AmandsSenseClass.onContainerSensesAdded(Id, gameObject.transform.position);
-                    switch (eSenseItemColor)
-                    {
-                        case ESenseItemColor.Kappa:
-                            color = AmandsSensePlugin.KappaItemsColor.Value;
-                            break;
-                        case ESenseItemColor.NonFlea:
-                            color = AmandsSensePlugin.NonFleaItemsColor.Value;
-                            if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_barter.png"))
-                            {
-                                sprite = AmandsSenseClass.LoadedSprites["icon_barter.png"];
-                                useNewSize = true;
-                            }
-                            break;
-                        case ESenseItemColor.WishList:
-                            color = AmandsSensePlugin.WishListItemsColor.Value;
-                            if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_fav_checked.png"))
-                            {
-                                sprite = AmandsSenseClass.LoadedSprites["icon_fav_checked.png"];
-                                useNewSize = true;
-                            }
-                            break;
-                        case ESenseItemColor.Rare:
-                            color = AmandsSensePlugin.RareItemsColor.Value;
-                            break;
-                    }
-                    spriteRenderer = gameObject.AddComponent<SpriteRenderer>();
-                    if (spriteRenderer != null)
-                    {
-                        light = gameObject.AddComponent<Light>();
-                        if (light != null)
+                    case EPlayerSide.Usec:
+                        if (AmandsSenseClass.LoadedSprites.ContainsKey("Usec.png"))
                         {
-                            light.color = new Color(color.r, color.g, color.b, 1f);
-                            light.shadows = LightShadows.None;
-                            light.intensity = 0f;
-                            light.range = AmandsSensePlugin.LightRange.Value;
+                            sprite = AmandsSenseClass.LoadedSprites["Usec.png"];
                         }
-                        spriteRenderer.sprite = sprite;
-                        spriteRenderer.color = new Color(color.r, color.g, color.b, 0f);
-                        transform.LookAt(Camera.main.transform.position, Vector3.up);
-                        transform.localScale = (useNewSize ? AmandsSensePlugin.NewSize.Value : AmandsSensePlugin.Size.Value) * Mathf.Min(AmandsSensePlugin.SizeClamp.Value, Vector3.Distance(Camera.main.transform.position, transform.position));
-                        UpdateOpacity = true;
-                        await Task.Delay((int)(AmandsSensePlugin.Duration.Value * 1000));
-                        UpdateOpacity = true;
-                        StartOpacity = false;
-                    }
-                    else
-                    {
-                        AmandsSenseClass.ItemsSenses.Remove(Id);
-                        Destroy(gameObject);
-                    }
+                        break;
+                    case EPlayerSide.Bear:
+                        if (AmandsSenseClass.LoadedSprites.ContainsKey("Bear.png"))
+                        {
+                            sprite = AmandsSenseClass.LoadedSprites["Bear.png"];
+                        }
+                        break;
+                    case EPlayerSide.Savage:
+                        if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_kills_big.png"))
+                        {
+                            sprite = AmandsSenseClass.LoadedSprites["icon_kills_big.png"];
+                        }
+                        break;
                 }
-                else
+
+                switch (eSenseItemColor)
                 {
-                    AmandsSenseClass.ItemsSenses.Remove(Id);
-                    Destroy(gameObject);
+                    case ESenseItemColor.Default:
+                        color = AmandsSensePlugin.ObservedLootItemColor.Value;
+                        break;
+                    case ESenseItemColor.Kappa:
+                        color = AmandsSensePlugin.KappaItemsColor.Value;
+                        break;
+                    case ESenseItemColor.NonFlea:
+                        color = AmandsSensePlugin.NonFleaItemsColor.Value;
+                        if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_barter.png"))
+                        {
+                            sprite = AmandsSenseClass.LoadedSprites["icon_barter.png"];
+                        }
+                        break;
+                    case ESenseItemColor.WishList:
+                        color = AmandsSensePlugin.WishListItemsColor.Value;
+                        if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_fav_checked.png"))
+                        {
+                            sprite = AmandsSenseClass.LoadedSprites["icon_fav_checked.png"];
+                        }
+                        break;
+                    case ESenseItemColor.Rare:
+                        color = AmandsSensePlugin.RareItemsColor.Value;
+                        break;
+                }
+
+                // SenseDeadPlayer Sprite
+                if (spriteRenderer != null)
+                {
+                    spriteRenderer.sprite = sprite;
+                    spriteRenderer.color = new Color(color.r, color.g, color.b, 0f);
+                }
+
+                // SenseDeadPlayer Light
+                if (light != null)
+                {
+                    light.color = new Color(color.r, color.g, color.b, 1f);
+                    light.intensity = 0f;
+                    light.range = AmandsSensePlugin.LightRange.Value;
+                }
+
+                // SenseDeadPlayer Type
+                if (typeText != null)
+                {
+                    typeText.fontSize = 0.5f;
+                    typeText.text = RoleName;
+                    typeText.color = new Color(color.r, color.g, color.b, 0f);
+                }
+
+                // SenseDeadPlayer Name
+                if (nameText != null)
+                {
+                    nameText.fontSize = 1f;
+                    nameText.text = "<b>" + Name + "</b>";
+                    nameText.color = new Color(textColor.r, textColor.g, textColor.b, 0f);
+                }
+
+                // SenseDeadPlayer Description
+                if (descriptionText != null)
+                {
+                    descriptionText.fontSize = 0.75f;
+                    descriptionText.text = "";
+                    descriptionText.color = new Color(textColor.r, textColor.g, textColor.b, 0f);
                 }
             }
-            else
+            else if (amandsSenseWorld != null)
             {
-                AmandsSenseClass.ItemsSenses.Remove(Id);
+                amandsSenseWorld.CancelSense();
+            }
+        }
+        public override void UpdateSense()
+        {
+            if (DeadPlayer != null && DeadPlayer.gameObject.activeSelf)// && bodyPartCollider != null && bodyPartCollider.gameObject.activeSelf && bodyPartCollider.Collider != null && AmandsSenseClass.localPlayer != null && bodyPartCollider.Collider.transform.position.y > AmandsSenseClass.localPlayer.Position.y + AmandsSensePlugin.MinHeight.Value && bodyPartCollider.Collider.transform.position.y < AmandsSenseClass.localPlayer.Position.y + AmandsSensePlugin.MaxHeight.Value)
+            {
+                // SenseDeadPlayer Defaults
+                emptyDeadPlayer = false;
+                ESenseItemColor eSenseItemColor = ESenseItemColor.Default;
+
+                if (AmandsSenseClass.itemsJsonClass != null && AmandsSenseClass.itemsJsonClass.RareItems != null && AmandsSenseClass.itemsJsonClass.KappaItems != null && AmandsSenseClass.itemsJsonClass.NonFleaExclude != null && AmandsSenseClass.localPlayer != null && AmandsSenseClass.localPlayer.Profile != null && AmandsSenseClass.localPlayer.Profile.WishList != null)
+                {
+                    if (DeadPlayer != null && DeadPlayer.Profile != null)
+                    {
+                        object Inventory = Traverse.Create(DeadPlayer.Profile).Field("Inventory").GetValue();
+                        if (Inventory != null)
+                        {
+                            IEnumerable<Item> AllRealPlayerItems = Traverse.Create(Inventory).Property("AllRealPlayerItems").GetValue<IEnumerable<Item>>();
+                            if (AllRealPlayerItems != null)
+                            {
+                                foreach (Item item in AllRealPlayerItems)
+                                {
+                                    if (item.Parent != null)
+                                    {
+                                        if (item.Parent.Container != null && item.Parent.Container.ParentItem != null && TemplateIdToObjectMappingsClass.TypeTable["5448bf274bdc2dfc2f8b456a"].IsAssignableFrom(item.Parent.Container.ParentItem.GetType()))
+                                        {
+                                            continue;
+                                        }
+                                        Slot slot = item.Parent.Container as Slot;
+                                        if (slot != null)
+                                        {
+                                            if (slot.Name == "Dogtag")
+                                            {
+                                                continue;
+                                            }
+                                            if (slot.Name == "SecuredContainer")
+                                            {
+                                                continue;
+                                            }
+                                            if (slot.Name == "Scabbard")
+                                            {
+                                                continue;
+                                            }
+                                            if (slot.Name == "ArmBand")
+                                            {
+                                                continue;
+                                            }
+                                        }
+                                    }
+                                    if (emptyDeadPlayer)
+                                    {
+                                        emptyDeadPlayer = false;
+                                    }
+                                    if (AmandsSenseClass.itemsJsonClass.RareItems.Contains(item.TemplateId))
+                                    {
+                                        eSenseItemColor = ESenseItemColor.Rare;
+                                    }
+                                    else if (AmandsSenseClass.localPlayer.Profile.WishList.Contains(item.TemplateId) && eSenseItemColor != ESenseItemColor.Rare)
+                                    {
+                                        eSenseItemColor = ESenseItemColor.WishList;
+                                    }
+                                    else if (item.Template != null && !item.Template.CanSellOnRagfair && !AmandsSenseClass.itemsJsonClass.NonFleaExclude.Contains(item.TemplateId) && eSenseItemColor != ESenseItemColor.Rare && eSenseItemColor != ESenseItemColor.WishList)
+                                    {
+                                        if (!AmandsSensePlugin.FleaIncludeAmmo.Value && TemplateIdToObjectMappingsClass.TypeTable["5485a8684bdc2da71d8b4567"].IsAssignableFrom(item.GetType()))
+                                        {
+                                            continue;
+                                        }
+                                        else if (AmandsSensePlugin.EnableFlea.Value)
+                                        {
+                                            eSenseItemColor = ESenseItemColor.NonFlea;
+                                        }
+                                    }
+                                    else if (AmandsSenseClass.itemsJsonClass.KappaItems.Contains(item.TemplateId) && eSenseItemColor == ESenseItemColor.Default)
+                                    {
+                                        eSenseItemColor = ESenseItemColor.Kappa;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                switch (DeadPlayer.Side)
+                {
+                    case EPlayerSide.Usec:
+                        if (AmandsSenseClass.LoadedSprites.ContainsKey("Usec.png"))
+                        {
+                            sprite = AmandsSenseClass.LoadedSprites["Usec.png"];
+                        }
+                        break;
+                    case EPlayerSide.Bear:
+                        if (AmandsSenseClass.LoadedSprites.ContainsKey("Bear.png"))
+                        {
+                            sprite = AmandsSenseClass.LoadedSprites["Bear.png"];
+                        }
+                        break;
+                    case EPlayerSide.Savage:
+                        if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_kills_big.png"))
+                        {
+                            sprite = AmandsSenseClass.LoadedSprites["icon_kills_big.png"];
+                        }
+                        break;
+                }
+
+                switch (eSenseItemColor)
+                {
+                    case ESenseItemColor.Default:
+                        color = AmandsSensePlugin.ObservedLootItemColor.Value;
+                        break;
+                    case ESenseItemColor.Kappa:
+                        color = AmandsSensePlugin.KappaItemsColor.Value;
+                        break;
+                    case ESenseItemColor.NonFlea:
+                        color = AmandsSensePlugin.NonFleaItemsColor.Value;
+                        if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_barter.png"))
+                        {
+                            sprite = AmandsSenseClass.LoadedSprites["icon_barter.png"];
+                        }
+                        break;
+                    case ESenseItemColor.WishList:
+                        color = AmandsSensePlugin.WishListItemsColor.Value;
+                        if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_fav_checked.png"))
+                        {
+                            sprite = AmandsSenseClass.LoadedSprites["icon_fav_checked.png"];
+                        }
+                        break;
+                    case ESenseItemColor.Rare:
+                        color = AmandsSensePlugin.RareItemsColor.Value;
+                        break;
+                }
+
+                // SenseDeadPlayer Sprite
+                if (spriteRenderer != null)
+                {
+                    spriteRenderer.sprite = sprite;
+                    spriteRenderer.color = new Color(color.r, color.g, color.b, spriteRenderer.color.a);
+                }
+
+                // SenseDeadPlayer Light
+                if (light != null)
+                {
+                    light.color = new Color(color.r, color.g, color.b, 1f);
+                    light.range = AmandsSensePlugin.LightRange.Value;
+                }
+
+                // SenseDeadPlayer Type
+                if (typeText != null)
+                {
+                    typeText.fontSize = 0.5f;
+                    //typeText.text = corpse.Side.ToString();
+                    typeText.color = new Color(color.r, color.g, color.b, typeText.color.a);
+                }
+
+                // SenseDeadPlayer Name
+                if (nameText != null)
+                {
+                    nameText.fontSize = 1f;
+                    //nameText.text = Name;
+                    nameText.color = new Color(textColor.r, textColor.g, textColor.b, nameText.color.a);
+                }
+
+                // SenseDeadPlayer Description
+                if (descriptionText != null)
+                {
+                    descriptionText.fontSize = 0.75f;
+                    descriptionText.text = "";
+                    descriptionText.color = new Color(textColor.r, textColor.g, textColor.b, descriptionText.color.a);
+                }
+            }
+            else if (amandsSenseWorld != null)
+            {
+                amandsSenseWorld.CancelSense();
+            }
+        }
+        public override void UpdateIntensity(float Intensity)
+        {
+            if (spriteRenderer != null)
+            {
+                spriteRenderer.color = new Color(color.r, color.g, color.b, color.a * Intensity);
+            }
+            if (light != null)
+            {
+                light.intensity = AmandsSensePlugin.LightIntensity.Value * Intensity;
+            }
+            if (typeText != null)
+            {
+                typeText.color = new Color(color.r, color.g, color.b, Intensity);
+            }
+            if (nameText != null)
+            {
+                nameText.color = new Color(textColor.r, textColor.g, textColor.b, Intensity);
+            }
+            if (descriptionText != null)
+            {
+                descriptionText.color = new Color(textColor.r, textColor.g, textColor.b, Intensity);
+            }
+        }
+        public override void UpdateSenseLocation()
+        {
+            if (corpse != null)
+            {
+                gameObject.transform.parent.position = corpse.TrackableTransform.position + (Vector3.up * 3f * AmandsSensePlugin.VerticalOffset.Value);
+            }
+        }
+        public override void RemoveSense()
+        {
+            //Destroy(gameObject);
+        }
+    }
+    public class AmandsSenseExfil : MonoBehaviour
+    {
+        public ExfiltrationPoint exfiltrationPoint;
+
+        public Color color = Color.green;
+        public Color textColor = AmandsSensePlugin.TextColor.Value;
+
+        public SpriteRenderer spriteRenderer;
+        public Sprite sprite;
+
+        public Light light;
+
+        public GameObject textGameObject;
+
+        public TextMeshPro typeText;
+        public TextMeshPro nameText;
+        public TextMeshPro descriptionText;
+        public TextMeshPro distanceText;
+
+        public float Delay;
+        public float LifeSpan;
+
+        public bool UpdateIntensity = false;
+        public bool Starting = true;
+        public float Intensity = 0f;
+
+        public void SetSense(ExfiltrationPoint ExfiltrationPoint)
+        {
+            exfiltrationPoint = ExfiltrationPoint;
+            gameObject.transform.position = exfiltrationPoint.transform.position + (Vector3.up * AmandsSensePlugin.ExfilVerticalOffset.Value);
+            gameObject.transform.localScale = new Vector3(-50,50,50);
+        }
+
+        public void Construct()
+        {
+            // AmandsSenseExfil Sprite GameObject
+            GameObject spriteGameObject = new GameObject("Sprite");
+            spriteGameObject.transform.SetParent(gameObject.transform, false);
+            RectTransform spriteRectTransform = spriteGameObject.AddComponent<RectTransform>();
+            spriteRectTransform.localScale /= 50f;
+
+            // AmandsSenseExfil Sprite
+            spriteRenderer = spriteGameObject.AddComponent<SpriteRenderer>();
+            spriteRenderer.sprite = sprite;
+            spriteRenderer.color = new Color(color.r, color.g, color.b, 0f);
+
+            // AmandsSenseExfil Sprite Light
+            light = spriteGameObject.AddComponent<Light>();
+            light.color = new Color(color.r, color.g, color.b, 1f);
+            light.shadows = LightShadows.None;
+            light.intensity = 0f;
+            light.range = AmandsSensePlugin.ExfilLightRange.Value;
+
+            // AmandsSenseExfil Text
+            textGameObject = new GameObject("Text");
+            textGameObject.transform.SetParent(gameObject.transform, false);
+            RectTransform textRectTransform = textGameObject.AddComponent<RectTransform>();
+            textRectTransform.localPosition = new Vector3(0.1f, 0, 0);
+            textRectTransform.pivot = new Vector2(0, 0.5f);
+
+            // AmandsSenseExfil VerticalLayoutGroup
+            VerticalLayoutGroup verticalLayoutGroup = textGameObject.AddComponent<VerticalLayoutGroup>();
+            verticalLayoutGroup.spacing = -0.02f;
+            verticalLayoutGroup.childForceExpandHeight = false;
+            verticalLayoutGroup.childForceExpandWidth = false;
+            verticalLayoutGroup.childControlHeight = true;
+            verticalLayoutGroup.childControlWidth = true;
+            ContentSizeFitter contentSizeFitter = textGameObject.AddComponent<ContentSizeFitter>();
+            contentSizeFitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+            contentSizeFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            GameObject typeTextGameObject = new GameObject("Type");
+            typeTextGameObject.transform.SetParent(textGameObject.transform, false);
+            typeText = typeTextGameObject.AddComponent<TextMeshPro>();
+            typeText.autoSizeTextContainer = true;
+            typeText.fontSize = 0.5f;
+            typeText.text = "Type";
+            typeText.color = new Color(color.r, color.g, color.b, 0f);
+
+            GameObject nameTextGameObject = new GameObject("Name");
+            nameTextGameObject.transform.SetParent(textGameObject.transform, false);
+            nameText = nameTextGameObject.AddComponent<TextMeshPro>();
+            nameText.autoSizeTextContainer = true;
+            nameText.fontSize = 1f;
+            nameText.text = "Name";
+            nameText.color = new Color(textColor.r, textColor.g, textColor.b, 0f);
+
+            GameObject descriptionTextGameObject = new GameObject("Description");
+            descriptionTextGameObject.transform.SetParent(textGameObject.transform, false);
+            descriptionText = descriptionTextGameObject.AddComponent<TextMeshPro>();
+            descriptionText.autoSizeTextContainer = true;
+            descriptionText.fontSize = 0.75f;
+            descriptionText.text = "";
+            descriptionText.color = new Color(textColor.r, textColor.g, textColor.b, 0f);
+
+            GameObject distanceTextGameObject = new GameObject("Distance");
+            distanceTextGameObject.transform.SetParent(gameObject.transform, false);
+            distanceTextGameObject.transform.localPosition = new Vector3(0, -0.13f, 0);
+            distanceText = distanceTextGameObject.AddComponent<TextMeshPro>();
+            distanceText.alignment = TextAlignmentOptions.Center;
+            distanceText.autoSizeTextContainer = true;
+            distanceText.fontSize = 0.75f;
+            distanceText.text = "Distance";
+            distanceText.color = new Color(color.r, color.g, color.b, 0f);
+
+            enabled = false;
+            gameObject.SetActive(false);
+        }
+        public void ShowSense()
+        {
+            color = Color.green;
+            textColor = AmandsSensePlugin.TextColor.Value;
+
+            if (exfiltrationPoint != null && exfiltrationPoint.gameObject.activeSelf && AmandsSenseClass.localPlayer != null && exfiltrationPoint.InfiltrationMatch(AmandsSenseClass.localPlayer))
+            {
+                sprite = AmandsSenseClass.LoadedSprites["Exfil.png"];
+                bool Unmet = exfiltrationPoint.UnmetRequirements(AmandsSenseClass.localPlayer).ToArray().Any();
+                color = Unmet ? AmandsSensePlugin.ExfilUnmetColor.Value : AmandsSensePlugin.ExfilColor.Value;
+                // AmandsSenseExfil Sprite
+                if (spriteRenderer != null)
+                {
+                    spriteRenderer.sprite = sprite;
+                    spriteRenderer.color = new Color(color.r, color.g, color.b, 0f);
+                }
+
+                // AmandsSenseExfil Light
+                if (light != null)
+                {
+                    light.color = new Color(color.r, color.g, color.b, 1f);
+                    light.intensity = 0f;
+                    light.range = AmandsSensePlugin.ExfilLightRange.Value;
+                }
+
+                // AmandsSenseExfil Type
+                if (typeText != null)
+                {
+                    typeText.fontSize = 0.5f;
+                    typeText.text = "Exfil";
+                    typeText.color = new Color(color.r, color.g, color.b, 0f);
+                }
+
+                // AmandsSenseExfil Name
+                if (nameText != null)
+                {
+                    nameText.fontSize = 1f;
+                    nameText.text = "<b>" + AmandsSenseHelper.Localized(exfiltrationPoint.Settings.Name,0) + "</b><color=#" + ColorUtility.ToHtmlStringRGB(color) + ">" + "<size=50%><voffset=0.5em> " + exfiltrationPoint.Settings.ExfiltrationTime + "s";
+                    nameText.color = new Color(textColor.r, textColor.g, textColor.b, 0f);
+                }
+
+                // AmandsSenseExfil Description
+                if (descriptionText != null)
+                {
+                    descriptionText.fontSize = 0.75f;
+                    string tips = "";
+                    if (Unmet)
+                    {
+                        foreach (string tip in exfiltrationPoint.GetTips(AmandsSenseClass.localPlayer.ProfileId))
+                        {
+                            tips = tips + tip + "\n";
+                        }
+                    }
+                    descriptionText.overrideColorTags = true;
+                    descriptionText.text = tips;
+                    descriptionText.color = new Color(textColor.r, textColor.g, textColor.b, 0f);
+                }
+
+                // AmandsSenseExfil Distancce
+                if (distanceText != null)
+                {
+                    distanceText.fontSize = 0.5f;
+                    if (Camera.main != null) distanceText.text = (int)Vector3.Distance(transform.position, Camera.main.transform.position) + "m";
+                    distanceText.color = new Color(color.r, color.g, color.b, 0f);
+                }
+
+                gameObject.SetActive(true);
+                enabled = true;
+
+                LifeSpan = 0f;
+                Starting = true;
+                Intensity = 0f;
+                UpdateIntensity = true;
+            }
+            if (exfiltrationPoint == null)
+            {
+                AmandsSenseClass.SenseExfils.Remove(this);
+                Destroy(gameObject);
+            }
+        }
+        public void UpdateSense()
+        {
+            if (exfiltrationPoint != null && exfiltrationPoint.gameObject.activeSelf && AmandsSenseClass.localPlayer != null && exfiltrationPoint.InfiltrationMatch(AmandsSenseClass.localPlayer))
+            {
+                sprite = AmandsSenseClass.LoadedSprites["Exfil.png"];
+                bool Unmet = exfiltrationPoint.UnmetRequirements(AmandsSenseClass.localPlayer).ToArray().Any();
+                color = Unmet ? AmandsSensePlugin.ExfilUnmetColor.Value : AmandsSensePlugin.ExfilColor.Value;
+                // AmandsSenseExfil Sprite
+                if (spriteRenderer != null)
+                {
+                    spriteRenderer.sprite = sprite;
+                    spriteRenderer.color = new Color(color.r, color.g, color.b, color.a);
+                }
+
+                // AmandsSenseExfil Light
+                if (light != null)
+                {
+                    light.color = new Color(color.r, color.g, color.b, 1f);
+                    light.range = AmandsSensePlugin.ExfilLightRange.Value;
+                }
+
+                // AmandsSenseExfil Type
+                if (typeText != null)
+                {
+                    typeText.fontSize = 0.5f;
+                    typeText.text = "Exfil";
+                    typeText.color = new Color(color.r, color.g, color.b, color.a);
+                }
+
+                // AmandsSenseExfil Name
+                if (nameText != null)
+                {
+                    nameText.fontSize = 1f;
+                    nameText.text = "<b>" + AmandsSenseHelper.Localized(exfiltrationPoint.Settings.Name, 0) + "</b><color=#" + ColorUtility.ToHtmlStringRGB(color) + ">" + "<size=50%><voffset=0.5em> " + exfiltrationPoint.Settings.ExfiltrationTime + "s";
+                    nameText.color = new Color(textColor.r, textColor.g, textColor.b, textColor.a);
+                }
+
+                // AmandsSenseExfil Description
+                if (descriptionText != null)
+                {
+                    descriptionText.fontSize = 0.75f;
+                    string tips = "";
+                    if (Unmet)
+                    {
+                        foreach (string tip in exfiltrationPoint.GetTips(AmandsSenseClass.localPlayer.ProfileId))
+                        {
+                            tips = tips + tip + "\n";
+                        }
+                    }
+                    descriptionText.overrideColorTags = true;
+                    descriptionText.text = tips;
+                    descriptionText.color = new Color(textColor.r, textColor.g, textColor.b, textColor.a);
+                }
+
+                // AmandsSenseExfil Distancce
+                if (distanceText != null)
+                {
+                    distanceText.fontSize = 0.5f;
+                    if (Camera.main != null) distanceText.text = (int)Vector3.Distance(transform.position, Camera.main.transform.position) + "m";
+                    distanceText.color = new Color(color.r, color.g, color.b, color.a);
+                }
+            }
+            if (exfiltrationPoint == null)
+            {
+                AmandsSenseClass.SenseExfils.Remove(this);
                 Destroy(gameObject);
             }
         }
         public void Update()
         {
-            if (Camera.main != null)
+            if (UpdateIntensity)
             {
-                transform.LookAt(Camera.main.transform.position, Vector3.up);
-                transform.localScale = (useNewSize ? AmandsSensePlugin.NewSize.Value : AmandsSensePlugin.Size.Value) * Mathf.Min(AmandsSensePlugin.SizeClamp.Value, Vector3.Distance(Camera.main.transform.position, transform.position));
-            }
-            if (UpdateOpacity)
-            {
-                if (StartOpacity)
+                if (Starting)
                 {
-                    Opacity += AmandsSensePlugin.OpacitySpeed.Value * Time.deltaTime;
-                    if (Opacity >= 1f)
+                    Intensity += AmandsSensePlugin.IntensitySpeed.Value * Time.deltaTime;
+                    if (Intensity >= 1f)
                     {
-                        UpdateOpacity = false;
-                        StartOpacity = false;
+                        UpdateIntensity = false;
+                        Starting = false;
                     }
                 }
                 else
                 {
-                    Opacity -= AmandsSensePlugin.OpacitySpeed.Value * Time.deltaTime;
-                    if (Opacity <= 0f)
+                    Intensity -= AmandsSensePlugin.IntensitySpeed.Value * Time.deltaTime;
+                    if (Intensity <= 0f)
                     {
-                        UpdateOpacity = false;
-                        AmandsSenseClass.ItemsSenses.Remove(Id);
-                        Destroy(gameObject);
+                        Starting = true;
+                        UpdateIntensity = false;
+                        enabled = false;
+                        gameObject.SetActive(false);
+                        return;
                     }
                 }
-                if (spriteRenderer != null && light != null)
+
+                if (spriteRenderer != null)
                 {
-                    spriteRenderer.color = new Color(color.r, color.g, color.b, color.a * Opacity);
-                    light.intensity = AmandsSensePlugin.LightIntensity.Value * Opacity;
+                    spriteRenderer.color = new Color(color.r, color.g, color.b, color.a * Intensity);
+                }
+                if (light != null)
+                {
+                    light.intensity = Intensity * AmandsSensePlugin.ExfilLightIntensity.Value;
+                }
+                if (typeText != null)
+                {
+                    typeText.color = new Color(color.r, color.g, color.b, Intensity);
+                }
+                if (nameText != null)
+                {
+                    nameText.color = new Color(textColor.r, textColor.g, textColor.b, Intensity);
+                }
+                if (descriptionText != null)
+                {
+                    descriptionText.color = new Color(textColor.r, textColor.g, textColor.b, Intensity);
+                }
+                if (distanceText != null)
+                {
+                    distanceText.color = new Color(color.r, color.g, color.b, Intensity);
+                }
+            }
+            else if (!Starting)
+            {
+                LifeSpan += Time.deltaTime;
+                if (LifeSpan > AmandsSensePlugin.ExfilDuration.Value)
+                {
+                    UpdateIntensity = true;
+                }
+            }
+            if (Camera.main != null)
+            {
+                transform.LookAt(new Vector3(Camera.main.transform.position.x, transform.position.y, Camera.main.transform.position.z));
+                if (distanceText != null)
+                {
+                    distanceText.text = (int)Vector3.Distance(transform.position, Camera.main.transform.position) + "m";
                 }
             }
         }
@@ -1692,933 +2503,6 @@ namespace AmandsSense
         public List<string> RareItems { get; set; }
         public List<string> KappaItems { get; set; }
         public List<string> NonFleaExclude { get; set; }
-    }
-    public class AmandsSenseAlwaysOn : MonoBehaviour
-    {
-        public Collider collider;
-        public ObservedLootItem observedLootItem;
-        public string Id;
-        public SpriteRenderer spriteRenderer;
-        public Sprite sprite;
-        public Light light;
-        public Color color = AmandsSensePlugin.ObservedLootItemColor.Value;
-
-        public float Delay = 0f;
-        public bool UpdateOpacity = false;
-        public bool StartOpacity = true;
-        private float Opacity = 0f;
-
-        public void Start()
-        {
-            if (AmandsSenseClass.ItemsAlwaysOn.Contains(this))
-            {
-                Destroy(gameObject);
-            }
-            else
-            {
-                AmandsSenseClass.ItemsAlwaysOn.Add(this);
-                WaitAndStart();
-            }
-        }
-        private async void WaitAndStart()
-        {
-            await Task.Delay((int)(UnityEngine.Random.Range(0.0f, 1f) * 1000));
-            if (gameObject != null && observedLootItem != null && observedLootItem.gameObject.activeSelf && observedLootItem.Item != null && AmandsSenseClass.localPlayer != null)
-            {
-                if (AmandsSenseClass.LoadedSprites.ContainsKey("ObservedLootItem.png"))
-                {
-                    sprite = AmandsSenseClass.LoadedSprites["ObservedLootItem.png"];
-                }
-                BoxCollider boxCollider = observedLootItem.gameObject.GetComponent<BoxCollider>();
-                if (boxCollider != null)
-                {
-                    Vector3 position = boxCollider.transform.TransformPoint(boxCollider.center);
-                    gameObject.transform.position = new Vector3(position.x, boxCollider.ClosestPoint(position + (Vector3.up * 100f)).y + AmandsSensePlugin.NormalSize.Value, position.z);
-                }
-                else
-                {
-                    gameObject.transform.position = observedLootItem.transform.position + (Vector3.up * AmandsSensePlugin.NormalSize.Value);
-                }
-                ESenseItemType eSenseItemType = ESenseItemType.ObservedLootItem;
-                eSenseItemType = AmandsSenseClass.SenseItemType(observedLootItem.Item.GetType());
-                if (typeof(Weapon).IsAssignableFrom(observedLootItem.Item.GetType()))
-                {
-                    Weapon weapon = observedLootItem.Item as Weapon;
-                    if (weapon != null)
-                    {
-                        switch (weapon.WeapClass)
-                        {
-                            case "assaultCarbine":
-                                eSenseItemType = ESenseItemType.AssaultCarbines;
-                                color = AmandsSensePlugin.AssaultCarbinesColor.Value;
-                                if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_weapons_carbines.png"))
-                                {
-                                    sprite = AmandsSenseClass.LoadedSprites["icon_weapons_carbines.png"];
-                                }
-                                break;
-                            case "assaultRifle":
-                                eSenseItemType = ESenseItemType.AssaultRifles;
-                                color = AmandsSensePlugin.AssaultRiflesColor.Value;
-                                if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_weapons_assaultrifles.png"))
-                                {
-                                    sprite = AmandsSenseClass.LoadedSprites["icon_weapons_assaultrifles.png"];
-                                }
-                                break;
-                            case "sniperRifle":
-                                eSenseItemType = ESenseItemType.BoltActionRifles;
-                                color = AmandsSensePlugin.BoltActionRiflesColor.Value;
-                                if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_weapons_botaction.png"))
-                                {
-                                    sprite = AmandsSenseClass.LoadedSprites["icon_weapons_botaction.png"];
-                                }
-                                break;
-                            case "grenadeLauncher":
-                                eSenseItemType = ESenseItemType.GrenadeLaunchers;
-                                color = AmandsSensePlugin.GrenadeLaunchersColor.Value;
-                                if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_weapons_gl.png"))
-                                {
-                                    sprite = AmandsSenseClass.LoadedSprites["icon_weapons_gl.png"];
-                                }
-                                break;
-                            case "machinegun":
-                                eSenseItemType = ESenseItemType.MachineGuns;
-                                color = AmandsSensePlugin.MachineGunsColor.Value;
-                                if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_weapons_mg.png"))
-                                {
-                                    sprite = AmandsSenseClass.LoadedSprites["icon_weapons_mg.png"];
-                                }
-                                break;
-                            case "marksmanRifle":
-                                eSenseItemType = ESenseItemType.MarksmanRifles;
-                                color = AmandsSensePlugin.MarksmanRiflesColor.Value;
-                                if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_weapons_dmr.png"))
-                                {
-                                    sprite = AmandsSenseClass.LoadedSprites["icon_weapons_dmr.png"];
-                                }
-                                break;
-                            case "pistol":
-                                eSenseItemType = ESenseItemType.Pistols;
-                                color = AmandsSensePlugin.PistolsColor.Value;
-                                if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_weapons_pistols.png"))
-                                {
-                                    sprite = AmandsSenseClass.LoadedSprites["icon_weapons_pistols.png"];
-                                }
-                                break;
-                            case "smg":
-                                eSenseItemType = ESenseItemType.SMGs;
-                                color = AmandsSensePlugin.SMGsColor.Value;
-                                if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_weapons_smg.png"))
-                                {
-                                    sprite = AmandsSenseClass.LoadedSprites["icon_weapons_smg.png"];
-                                }
-                                break;
-                            case "shotgun":
-                                eSenseItemType = ESenseItemType.Shotguns;
-                                color = AmandsSensePlugin.ShotgunsColor.Value;
-                                if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_weapons_shotguns.png"))
-                                {
-                                    sprite = AmandsSenseClass.LoadedSprites["icon_weapons_shotguns.png"];
-                                }
-                                break;
-                            case "specialWeapon":
-                                eSenseItemType = ESenseItemType.SpecialWeapons;
-                                color = AmandsSensePlugin.SpecialWeaponsColor.Value;
-                                if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_weapons_special.png"))
-                                {
-                                    sprite = AmandsSenseClass.LoadedSprites["icon_weapons_special.png"];
-                                }
-                                break;
-                        }
-                    }
-                }
-                if (eSenseItemType == ESenseItemType.All)
-                {
-                    eSenseItemType = ESenseItemType.ObservedLootItem;
-                }
-                switch (eSenseItemType)
-                {
-                    case ESenseItemType.ObservedLootItem:
-                        color = AmandsSensePlugin.ObservedLootItemColor.Value;
-                        if (AmandsSenseClass.LoadedSprites.ContainsKey("ObservedLootItem.png"))
-                        {
-                            sprite = AmandsSenseClass.LoadedSprites["ObservedLootItem.png"];
-                        }
-                        break;
-                    case ESenseItemType.Others:
-                        color = AmandsSensePlugin.OthersColor.Value;
-                        if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_barter_others.png"))
-                        {
-                            sprite = AmandsSenseClass.LoadedSprites["icon_barter_others.png"];
-                        }
-                        break;
-                    case ESenseItemType.BuildingMaterials:
-                        color = AmandsSensePlugin.BuildingMaterialsColor.Value;
-                        if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_barter_building.png"))
-                        {
-                            sprite = AmandsSenseClass.LoadedSprites["icon_barter_building.png"];
-                        }
-                        break;
-                    case ESenseItemType.Electronics:
-                        color = AmandsSensePlugin.ElectronicsColor.Value;
-                        if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_barter_electronics.png"))
-                        {
-                            sprite = AmandsSenseClass.LoadedSprites["icon_barter_electronics.png"];
-                        }
-                        break;
-                    case ESenseItemType.EnergyElements:
-                        color = AmandsSensePlugin.EnergyElementsColor.Value;
-                        if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_barter_energy.png"))
-                        {
-                            sprite = AmandsSenseClass.LoadedSprites["icon_barter_energy.png"];
-                        }
-                        break;
-                    case ESenseItemType.FlammableMaterials:
-                        color = AmandsSensePlugin.FlammableMaterialsColor.Value;
-                        if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_barter_flammable.png"))
-                        {
-                            sprite = AmandsSenseClass.LoadedSprites["icon_barter_flammable.png"];
-                        }
-                        break;
-                    case ESenseItemType.HouseholdMaterials:
-                        color = AmandsSensePlugin.HouseholdMaterialsColor.Value;
-                        if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_barter_household.png"))
-                        {
-                            sprite = AmandsSenseClass.LoadedSprites["icon_barter_household.png"];
-                        }
-                        break;
-                    case ESenseItemType.MedicalSupplies:
-                        color = AmandsSensePlugin.MedicalSuppliesColor.Value;
-                        if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_barter_medical.png"))
-                        {
-                            sprite = AmandsSenseClass.LoadedSprites["icon_barter_medical.png"];
-                        }
-                        break;
-                    case ESenseItemType.Tools:
-                        color = AmandsSensePlugin.ToolsColor.Value;
-                        if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_barter_tools.png"))
-                        {
-                            sprite = AmandsSenseClass.LoadedSprites["icon_barter_tools.png"];
-                        }
-                        break;
-                    case ESenseItemType.Valuables:
-                        color = AmandsSensePlugin.ValuablesColor.Value;
-                        if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_barter_valuables.png"))
-                        {
-                            sprite = AmandsSenseClass.LoadedSprites["icon_barter_valuables.png"];
-                        }
-                        break;
-                    case ESenseItemType.Backpacks:
-                        color = AmandsSensePlugin.BackpacksColor.Value;
-                        if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_gear_backpacks.png"))
-                        {
-                            sprite = AmandsSenseClass.LoadedSprites["icon_gear_backpacks.png"];
-                        }
-                        break;
-                    case ESenseItemType.BodyArmor:
-                        color = AmandsSensePlugin.BodyArmorColor.Value;
-                        if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_gear_armor.png"))
-                        {
-                            sprite = AmandsSenseClass.LoadedSprites["icon_gear_armor.png"];
-                        }
-                        break;
-                    case ESenseItemType.Eyewear:
-                        color = AmandsSensePlugin.EyewearColor.Value;
-                        if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_gear_visors.png"))
-                        {
-                            sprite = AmandsSenseClass.LoadedSprites["icon_gear_visors.png"];
-                        }
-                        break;
-                    case ESenseItemType.Facecovers:
-                        color = AmandsSensePlugin.FacecoversColor.Value;
-                        if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_gear_facecovers.png"))
-                        {
-                            sprite = AmandsSenseClass.LoadedSprites["icon_gear_facecovers.png"];
-                        }
-                        break;
-                    case ESenseItemType.GearComponents:
-                        color = AmandsSensePlugin.GearComponentsColor.Value;
-                        if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_gear_components.png"))
-                        {
-                            sprite = AmandsSenseClass.LoadedSprites["icon_gear_components.png"];
-                        }
-                        break;
-                    case ESenseItemType.Headgear:
-                        color = AmandsSensePlugin.HeadgearColor.Value;
-                        if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_gear_headwear.png"))
-                        {
-                            sprite = AmandsSenseClass.LoadedSprites["icon_gear_headwear.png"];
-                        }
-                        break;
-                    case ESenseItemType.Headsets:
-                        color = AmandsSensePlugin.HeadsetsColor.Value;
-                        if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_gear_headsets.png"))
-                        {
-                            sprite = AmandsSenseClass.LoadedSprites["icon_gear_headsets.png"];
-                        }
-                        break;
-                    case ESenseItemType.SecureContainers:
-                        color = AmandsSensePlugin.SecureContainersColor.Value;
-                        if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_gear_secured.png"))
-                        {
-                            sprite = AmandsSenseClass.LoadedSprites["icon_gear_secured.png"];
-                        }
-                        break;
-                    case ESenseItemType.StorageContainers:
-                        color = AmandsSensePlugin.StorageContainersColor.Value;
-                        if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_gear_cases.png"))
-                        {
-                            sprite = AmandsSenseClass.LoadedSprites["icon_gear_cases.png"];
-                        }
-                        break;
-                    case ESenseItemType.TacticalRigs:
-                        color = AmandsSensePlugin.TacticalRigsColor.Value;
-                        if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_gear_rigs.png"))
-                        {
-                            sprite = AmandsSenseClass.LoadedSprites["icon_gear_rigs.png"];
-                        }
-                        break;
-                    case ESenseItemType.FunctionalMods:
-                        color = AmandsSensePlugin.FunctionalModsColor.Value;
-                        if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_mods_functional.png"))
-                        {
-                            sprite = AmandsSenseClass.LoadedSprites["icon_mods_functional.png"];
-                        }
-                        break;
-                    case ESenseItemType.GearMods:
-                        color = AmandsSensePlugin.GearModsColor.Value;
-                        if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_mods_gear.png"))
-                        {
-                            sprite = AmandsSenseClass.LoadedSprites["icon_mods_gear.png"];
-                        }
-                        break;
-                    case ESenseItemType.VitalParts:
-                        color = AmandsSensePlugin.VitalPartsColor.Value;
-                        if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_mods_vital.png"))
-                        {
-                            sprite = AmandsSenseClass.LoadedSprites["icon_mods_vital.png"];
-                        }
-                        break;
-                    case ESenseItemType.MeleeWeapons:
-                        color = AmandsSensePlugin.MeleeWeaponsColor.Value;
-                        if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_weapons_melee.png"))
-                        {
-                            sprite = AmandsSenseClass.LoadedSprites["icon_weapons_melee.png"];
-                        }
-                        break;
-                    case ESenseItemType.Throwables:
-                        color = AmandsSensePlugin.ThrowablesColor.Value;
-                        if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_weapons_throw.png"))
-                        {
-                            sprite = AmandsSenseClass.LoadedSprites["icon_weapons_throw.png"];
-                        }
-                        break;
-                    case ESenseItemType.AmmoPacks:
-                        color = AmandsSensePlugin.AmmoPacksColor.Value;
-                        if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_ammo_boxes.png"))
-                        {
-                            sprite = AmandsSenseClass.LoadedSprites["icon_ammo_boxes.png"];
-                        }
-                        break;
-                    case ESenseItemType.Rounds:
-                        color = AmandsSensePlugin.RoundsColor.Value;
-                        if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_ammo_rounds.png"))
-                        {
-                            sprite = AmandsSenseClass.LoadedSprites["icon_ammo_rounds.png"];
-                        }
-                        break;
-                    case ESenseItemType.Drinks:
-                        color = AmandsSensePlugin.DrinksColor.Value;
-                        if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_provisions_drinks.png"))
-                        {
-                            sprite = AmandsSenseClass.LoadedSprites["icon_provisions_drinks.png"];
-                        }
-                        break;
-                    case ESenseItemType.Food:
-                        color = AmandsSensePlugin.FoodColor.Value;
-                        if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_provisions_food.png"))
-                        {
-                            sprite = AmandsSenseClass.LoadedSprites["icon_provisions_food.png"];
-                        }
-                        break;
-                    case ESenseItemType.Injectors:
-                        color = AmandsSensePlugin.InjectorsColor.Value;
-                        if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_medical_injectors.png"))
-                        {
-                            sprite = AmandsSenseClass.LoadedSprites["icon_medical_injectors.png"];
-                        }
-                        break;
-                    case ESenseItemType.InjuryTreatment:
-                        color = AmandsSensePlugin.InjuryTreatmentColor.Value;
-                        if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_medical_injury.png"))
-                        {
-                            sprite = AmandsSenseClass.LoadedSprites["icon_medical_injury.png"];
-                        }
-                        break;
-                    case ESenseItemType.Medkits:
-                        color = AmandsSensePlugin.MedkitsColor.Value;
-                        if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_medical_medkits.png"))
-                        {
-                            sprite = AmandsSenseClass.LoadedSprites["icon_medical_medkits.png"];
-                        }
-                        break;
-                    case ESenseItemType.Pills:
-                        color = AmandsSensePlugin.PillsColor.Value;
-                        if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_medical_pills.png"))
-                        {
-                            sprite = AmandsSenseClass.LoadedSprites["icon_medical_pills.png"];
-                        }
-                        break;
-                    case ESenseItemType.ElectronicKeys:
-                        color = AmandsSensePlugin.ElectronicKeysColor.Value;
-                        if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_keys_electronic.png"))
-                        {
-                            sprite = AmandsSenseClass.LoadedSprites["icon_keys_electronic.png"];
-                        }
-                        break;
-                    case ESenseItemType.MechanicalKeys:
-                        color = AmandsSensePlugin.MechanicalKeysColor.Value;
-                        if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_keys_mechanic.png"))
-                        {
-                            sprite = AmandsSenseClass.LoadedSprites["icon_keys_mechanic.png"];
-                        }
-                        break;
-                    case ESenseItemType.InfoItems:
-                        if (observedLootItem.Item.QuestItem)
-                        {
-                            color = AmandsSensePlugin.QuestItemsColor.Value;
-                        }
-                        else
-                        {
-                            color = AmandsSensePlugin.InfoItemsColor.Value;
-                        }
-                        if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_info.png"))
-                        {
-                            sprite = AmandsSenseClass.LoadedSprites["icon_info.png"];
-                        }
-                        break;
-                    case ESenseItemType.SpecialEquipment:
-                        color = AmandsSensePlugin.SpecialEquipmentColor.Value;
-                        if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_spec.png"))
-                        {
-                            sprite = AmandsSenseClass.LoadedSprites["icon_spec.png"];
-                        }
-                        break;
-                    case ESenseItemType.Maps:
-                        color = AmandsSensePlugin.MapsColor.Value;
-                        if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_maps.png"))
-                        {
-                            sprite = AmandsSenseClass.LoadedSprites["icon_maps.png"];
-                        }
-                        break;
-                    case ESenseItemType.Money:
-                        color = AmandsSensePlugin.MoneyColor.Value;
-                        if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_money.png"))
-                        {
-                            sprite = AmandsSenseClass.LoadedSprites["icon_money.png"];
-                        }
-                        break;
-                }
-                if (AmandsSenseClass.itemsJsonClass != null)
-                {
-                    if (AmandsSenseClass.itemsJsonClass.KappaItems != null)
-                    {
-                        if (AmandsSenseClass.itemsJsonClass.KappaItems.Contains(observedLootItem.Item.TemplateId))
-                        {
-                            color = AmandsSensePlugin.KappaItemsColor.Value;
-                        }
-                    }
-                    if (!observedLootItem.Item.CanSellOnRagfair && !AmandsSenseClass.itemsJsonClass.NonFleaExclude.Contains(observedLootItem.Item.TemplateId))
-                    {
-                        color = AmandsSensePlugin.NonFleaItemsColor.Value;
-                    }
-                    if (AmandsSenseClass.localPlayer != null && AmandsSenseClass.localPlayer.Profile != null && AmandsSenseClass.localPlayer.Profile.WishList != null && AmandsSenseClass.localPlayer.Profile.WishList.Contains(observedLootItem.Item.TemplateId))
-                    {
-                        color = AmandsSensePlugin.WishListItemsColor.Value;
-                    }
-                    if (AmandsSenseClass.itemsJsonClass.RareItems != null)
-                    {
-                        if (AmandsSenseClass.itemsJsonClass.RareItems.Contains(observedLootItem.Item.TemplateId))
-                        {
-                            color = AmandsSensePlugin.RareItemsColor.Value;
-                        }
-                    }
-                }
-                spriteRenderer = gameObject.AddComponent<SpriteRenderer>();
-                if (spriteRenderer != null)
-                {
-                    light = gameObject.AddComponent<Light>();
-                    if (light != null)
-                    {
-                        light.color = new Color(color.r, color.g, color.b, 1f);
-                        light.shadows = LightShadows.None;
-                        light.intensity = 0.0f;
-                        light.range = AmandsSensePlugin.LightRange.Value;
-                    }
-                    spriteRenderer.sprite = sprite;
-                    spriteRenderer.color = new Color(color.r, color.g, color.b, 0f);
-                    transform.LookAt(Camera.main.transform.position, Vector3.up);
-                    transform.localScale = AmandsSensePlugin.AlwaysOnSize.Value;
-                    UpdateOpacity = true;
-                }
-                else
-                {
-                    AmandsSenseClass.ItemsAlwaysOn.Remove(this);
-                    Destroy(gameObject);
-                }
-            }
-            else
-            {
-                AmandsSenseClass.ItemsAlwaysOn.Remove(this);
-                Destroy(gameObject);
-            }
-        }
-        public void Update()
-        {
-            if (Camera.main != null)
-            {
-                transform.LookAt(Camera.main.transform.position, Vector3.up);
-            }
-            if (UpdateOpacity)
-            {
-                if (StartOpacity)
-                {
-                    Opacity += AmandsSensePlugin.OpacitySpeed.Value * Time.deltaTime;
-                    if (Opacity >= 1f)
-                    {
-                        UpdateOpacity = false;
-                        StartOpacity = false;
-                    }
-                }
-                else
-                {
-                    Opacity -= AmandsSensePlugin.OpacitySpeed.Value * Time.deltaTime;
-                    if (Opacity <= 0f)
-                    {
-                        UpdateOpacity = false;
-                        AmandsSenseClass.ItemsAlwaysOn.Remove(this);
-                        Destroy(gameObject);
-                    }
-                }
-                if (spriteRenderer != null && light != null)
-                {
-                    spriteRenderer.color = new Color(color.r, color.g, color.b, color.a * Opacity * 0.5f);
-                    light.intensity = AmandsSensePlugin.LightIntensity.Value * Opacity * 0.5f;
-                }
-            }
-        }
-    }
-    public class AmandsSenseContainerAlwaysOn : MonoBehaviour
-    {
-        public Collider collider;
-        public LootableContainer lootableContainer;
-        public bool emptyLootableContainer = false;
-        public int itemCount = 0;
-        public string Id;
-        public SpriteRenderer spriteRenderer;
-        public Sprite sprite;
-        public Light light;
-        public Color color = AmandsSensePlugin.LootableContainerColor.Value;
-
-        public float Delay = 0f;
-        public bool UpdateOpacity = false;
-        public bool StartOpacity = true;
-        private float Opacity = 0f;
-
-        public void Start()
-        {
-            if (AmandsSenseClass.ContainersAlwaysOn.Contains(this))
-            {
-                Destroy(gameObject);
-            }
-            else
-            {
-                AmandsSenseClass.ContainersAlwaysOn.Add(this);
-                WaitAndStart();
-            }
-        }
-        private async void WaitAndStart()
-        {
-            await Task.Delay((int)(UnityEngine.Random.Range(0.0f, 1f) * 1000));
-            if (gameObject != null && lootableContainer != null && lootableContainer.gameObject.activeSelf && AmandsSenseClass.localPlayer != null)
-            {
-                BoxCollider boxCollider = lootableContainer.gameObject.GetComponent<BoxCollider>();
-                if (boxCollider != null)
-                {
-                    Vector3 position = boxCollider.transform.TransformPoint(boxCollider.center);
-                    gameObject.transform.position = new Vector3(position.x, boxCollider.ClosestPoint(position + (Vector3.up * 100f)).y + AmandsSensePlugin.NormalSize.Value, position.z);
-                }
-                else
-                {
-                    gameObject.transform.position = lootableContainer.transform.position + (Vector3.up * AmandsSensePlugin.NormalSize.Value);
-                }
-                ESenseItemColor eSenseItemColor = ESenseItemColor.Default;
-                if (lootableContainer.ItemOwner != null && AmandsSenseClass.itemsJsonClass != null && AmandsSenseClass.itemsJsonClass.RareItems != null && AmandsSenseClass.itemsJsonClass.KappaItems != null && AmandsSenseClass.itemsJsonClass.NonFleaExclude != null && AmandsSenseClass.localPlayer.Profile != null && AmandsSenseClass.localPlayer.Profile.WishList != null)
-                {
-                    LootItemClass lootItemClass = lootableContainer.ItemOwner.RootItem as LootItemClass;
-                    if (lootItemClass != null)
-                    {
-                        object[] Grids = Traverse.Create(lootItemClass).Field("Grids").GetValue<object[]>();
-                        if (Grids != null)
-                        {
-                            foreach (object grid in Grids)
-                            {
-                                IEnumerable<Item> Items = Traverse.Create(grid).Property("Items").GetValue<IEnumerable<Item>>();
-                                if (Items != null)
-                                {
-                                    foreach (Item item in Items)
-                                    {
-                                        itemCount += 1;
-                                        if (AmandsSenseClass.itemsJsonClass.RareItems.Contains(item.TemplateId))
-                                        {
-                                            eSenseItemColor = ESenseItemColor.Rare;
-                                        }
-                                        else if (AmandsSenseClass.localPlayer.Profile.WishList.Contains(item.TemplateId) && eSenseItemColor != ESenseItemColor.Rare)
-                                        {
-                                            eSenseItemColor = ESenseItemColor.WishList;
-                                        }
-                                        else if (item.Template != null && !item.Template.CanSellOnRagfair && !AmandsSenseClass.itemsJsonClass.NonFleaExclude.Contains(item.TemplateId) && eSenseItemColor != ESenseItemColor.Rare && eSenseItemColor != ESenseItemColor.WishList)
-                                        {
-                                            if (!AmandsSensePlugin.NonFleaAmmo.Value && TemplateIdToObjectMappingsClass.TypeTable["5485a8684bdc2da71d8b4567"].IsAssignableFrom(item.GetType()))
-                                            {
-                                                continue;
-                                            }
-                                            else
-                                            {
-                                                eSenseItemColor = ESenseItemColor.NonFlea;
-                                            }
-                                        }
-                                        else if (AmandsSenseClass.itemsJsonClass.KappaItems.Contains(item.TemplateId) && eSenseItemColor == ESenseItemColor.Default)
-                                        {
-                                            eSenseItemColor = ESenseItemColor.Kappa;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                if (itemCount != 0)
-                {
-                    if (AmandsSenseClass.LoadedSprites.ContainsKey("LootableContainer.png"))
-                    {
-                        sprite = AmandsSenseClass.LoadedSprites["LootableContainer.png"];
-                    }
-                    switch (eSenseItemColor)
-                    {
-                        case ESenseItemColor.Kappa:
-                            color = AmandsSensePlugin.KappaItemsColor.Value;
-                            break;
-                        case ESenseItemColor.NonFlea:
-                            color = AmandsSensePlugin.NonFleaItemsColor.Value;
-                            if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_barter.png"))
-                            {
-                                sprite = AmandsSenseClass.LoadedSprites["icon_barter.png"];
-                            }
-                            break;
-                        case ESenseItemColor.WishList:
-                            color = AmandsSensePlugin.WishListItemsColor.Value;
-                            if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_fav_checked.png"))
-                            {
-                                sprite = AmandsSenseClass.LoadedSprites["icon_fav_checked.png"];
-                            }
-                            break;
-                        case ESenseItemColor.Rare:
-                            color = AmandsSensePlugin.RareItemsColor.Value;
-                            break;
-                    }
-                    spriteRenderer = gameObject.AddComponent<SpriteRenderer>();
-                    if (spriteRenderer != null)
-                    {
-                        light = gameObject.AddComponent<Light>();
-                        if (light != null)
-                        {
-                            light.color = new Color(color.r, color.g, color.b, 1f);
-                            light.shadows = LightShadows.None;
-                            light.intensity = 0.0f;
-                            light.range = AmandsSensePlugin.LightRange.Value;
-                        }
-                        spriteRenderer.sprite = sprite;
-                        spriteRenderer.color = new Color(color.r, color.g, color.b, 0f);
-                        transform.LookAt(Camera.main.transform.position, Vector3.up);
-                        transform.localScale = AmandsSensePlugin.AlwaysOnSize.Value;
-                        UpdateOpacity = true;
-                    }
-                    else
-                    {
-                        AmandsSenseClass.ContainersAlwaysOn.Remove(this);
-                        Destroy(gameObject);
-                    }
-                }
-                else
-                {
-                    AmandsSenseClass.ContainersAlwaysOn.Remove(this);
-                    Destroy(gameObject);
-                }
-            }
-            else
-            {
-                AmandsSenseClass.ContainersAlwaysOn.Remove(this);
-                Destroy(gameObject);
-            }
-        }
-        public void Update()
-        {
-            if (Camera.main != null)
-            {
-                transform.LookAt(Camera.main.transform.position, Vector3.up);
-            }
-            if (UpdateOpacity)
-            {
-                if (StartOpacity)
-                {
-                    Opacity += AmandsSensePlugin.OpacitySpeed.Value * Time.deltaTime;
-                    if (Opacity >= 1f)
-                    {
-                        UpdateOpacity = false;
-                        StartOpacity = false;
-                    }
-                }
-                else
-                {
-                    Opacity -= AmandsSensePlugin.OpacitySpeed.Value * Time.deltaTime;
-                    if (Opacity <= 0f)
-                    {
-                        UpdateOpacity = false;
-                        AmandsSenseClass.ContainersAlwaysOn.Remove(this);
-                        Destroy(gameObject);
-                    }
-                }
-                if (spriteRenderer != null && light != null)
-                {
-                    spriteRenderer.color = new Color(color.r, color.g, color.b, color.a * Opacity * 0.5f);
-                    light.intensity = AmandsSensePlugin.LightIntensity.Value * Opacity * 0.5f;
-                }
-            }
-        }
-    }
-    public class AmandsSenseDeadbodyAlwaysOn : MonoBehaviour
-    {
-        public Collider collider;
-        public Corpse corpse;
-        public BodyPartCollider bodyPartCollider;
-        public bool emptyCorpse = true;
-        public string Id;
-        public SpriteRenderer spriteRenderer;
-        public Sprite sprite;
-        public Light light;
-        public Color color = AmandsSensePlugin.LootableContainerColor.Value;
-
-        public float Delay = 0f;
-        public bool UpdateOpacity = false;
-        public bool StartOpacity = true;
-        private float Opacity = 0f;
-
-        public void Start()
-        {
-            if (AmandsSenseClass.DeadbodyAlwaysOn.Contains(this))
-            {
-                Destroy(gameObject);
-            }
-            else
-            {
-                AmandsSenseClass.DeadbodyAlwaysOn.Add(this);
-                WaitAndStart();
-            }
-        }
-        private async void WaitAndStart()
-        {
-            await Task.Delay((int)(UnityEngine.Random.Range(0.0f, 1f) * 1000));
-            if (gameObject != null && corpse != null && corpse.gameObject.activeSelf && bodyPartCollider != null && bodyPartCollider.gameObject.activeSelf && bodyPartCollider.Collider != null && AmandsSenseClass.localPlayer != null)
-            {
-                gameObject.transform.position = bodyPartCollider.Collider.transform.position + (Vector3.up * AmandsSensePlugin.NormalSize.Value) + (Vector3.up * 0.5f);
-                ESenseItemColor eSenseItemColor = ESenseItemColor.Default;
-                if (AmandsSenseClass.itemsJsonClass != null && AmandsSenseClass.itemsJsonClass.RareItems != null && AmandsSenseClass.itemsJsonClass.KappaItems != null && AmandsSenseClass.itemsJsonClass.NonFleaExclude != null && AmandsSenseClass.localPlayer != null && AmandsSenseClass.localPlayer.Profile != null && AmandsSenseClass.localPlayer.Profile.WishList != null)
-                {
-                    LocalPlayer localPlayer = corpse.gameObject.GetComponent<LocalPlayer>();
-                    if (localPlayer != null && localPlayer.Profile != null)
-                    {
-                        object Inventory = Traverse.Create(localPlayer.Profile).Field("Inventory").GetValue();
-                        if (Inventory != null)
-                        {
-                            IEnumerable<Item> AllRealPlayerItems = Traverse.Create(Inventory).Property("AllRealPlayerItems").GetValue<IEnumerable<Item>>();
-                            if (AllRealPlayerItems != null)
-                            {
-                                foreach (Item item in AllRealPlayerItems)
-                                {
-                                    if (item.Parent != null)
-                                    {
-                                        if (item.Parent.Container != null && item.Parent.Container.ParentItem != null && TemplateIdToObjectMappingsClass.TypeTable["5448bf274bdc2dfc2f8b456a"].IsAssignableFrom(item.Parent.Container.ParentItem.GetType()))
-                                        {
-                                            continue;
-                                        }
-                                        Slot slot = item.Parent.Container as Slot;
-                                        if (slot != null)
-                                        {
-                                            if (slot.Name == "Dogtag")
-                                            {
-                                                continue;
-                                            }
-                                            if (slot.Name == "SecuredContainer")
-                                            {
-                                                continue;
-                                            }
-                                            if (slot.Name == "Scabbard")
-                                            {
-                                                continue;
-                                            }
-                                            if (slot.Name == "ArmBand")
-                                            {
-                                                continue;
-                                            }
-                                        }
-                                    }
-                                    if (emptyCorpse)
-                                    {
-                                        emptyCorpse = false;
-                                    }
-                                    if (AmandsSenseClass.itemsJsonClass.RareItems.Contains(item.TemplateId))
-                                    {
-                                        eSenseItemColor = ESenseItemColor.Rare;
-                                    }
-                                    else if (AmandsSenseClass.localPlayer.Profile.WishList.Contains(item.TemplateId) && eSenseItemColor != ESenseItemColor.Rare)
-                                    {
-                                        eSenseItemColor = ESenseItemColor.WishList;
-                                    }
-                                    else if (item.Template != null && !item.Template.CanSellOnRagfair && !AmandsSenseClass.itemsJsonClass.NonFleaExclude.Contains(item.TemplateId) && eSenseItemColor != ESenseItemColor.Rare && eSenseItemColor != ESenseItemColor.WishList)
-                                    {
-                                        if (!AmandsSensePlugin.NonFleaAmmo.Value && TemplateIdToObjectMappingsClass.TypeTable["5485a8684bdc2da71d8b4567"].IsAssignableFrom(item.GetType()))
-                                        {
-                                            continue;
-                                        }
-                                        else
-                                        {
-                                            eSenseItemColor = ESenseItemColor.NonFlea;
-                                        }
-                                    }
-                                    else if (AmandsSenseClass.itemsJsonClass.KappaItems.Contains(item.TemplateId) && eSenseItemColor == ESenseItemColor.Default)
-                                    {
-                                        eSenseItemColor = ESenseItemColor.Kappa;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                if (!emptyCorpse)
-                {
-                    if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_kills_big.png"))
-                    {
-                        sprite = AmandsSenseClass.LoadedSprites["icon_kills_big.png"];
-                    }
-                    switch (corpse.Side)
-                    {
-                        case EPlayerSide.Usec:
-                            if (AmandsSenseClass.LoadedSprites.ContainsKey("Usec.png"))
-                            {
-                                sprite = AmandsSenseClass.LoadedSprites["Usec.png"];
-                            }
-                            break;
-                        case EPlayerSide.Bear:
-                            if (AmandsSenseClass.LoadedSprites.ContainsKey("Bear.png"))
-                            {
-                                sprite = AmandsSenseClass.LoadedSprites["Bear.png"];
-                            }
-                            break;
-                        case EPlayerSide.Savage:
-                            break;
-                    }
-                    switch (eSenseItemColor)
-                    {
-                        case ESenseItemColor.Kappa:
-                            color = AmandsSensePlugin.KappaItemsColor.Value;
-                            break;
-                        case ESenseItemColor.NonFlea:
-                            color = AmandsSensePlugin.NonFleaItemsColor.Value;
-                            if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_barter.png"))
-                            {
-                                sprite = AmandsSenseClass.LoadedSprites["icon_barter.png"];
-                            }
-                            break;
-                        case ESenseItemColor.WishList:
-                            color = AmandsSensePlugin.WishListItemsColor.Value;
-                            if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_fav_checked.png"))
-                            {
-                                sprite = AmandsSenseClass.LoadedSprites["icon_fav_checked.png"];
-                            }
-                            break;
-                        case ESenseItemColor.Rare:
-                            color = AmandsSensePlugin.RareItemsColor.Value;
-                            break;
-                    }
-                    spriteRenderer = gameObject.AddComponent<SpriteRenderer>();
-                    if (spriteRenderer != null)
-                    {
-                        light = gameObject.AddComponent<Light>();
-                        if (light != null)
-                        {
-                            light.color = new Color(color.r, color.g, color.b, 1f);
-                            light.shadows = LightShadows.None;
-                            light.intensity = 0.0f;
-                            light.range = AmandsSensePlugin.LightRange.Value;
-                        }
-                        spriteRenderer.sprite = sprite;
-                        spriteRenderer.color = new Color(color.r, color.g, color.b, 0f);
-                        transform.LookAt(Camera.main.transform.position, Vector3.up);
-                        transform.localScale = AmandsSensePlugin.AlwaysOnSize.Value;
-                        UpdateOpacity = true;
-                    }
-                    else
-                    {
-                        AmandsSenseClass.DeadbodyAlwaysOn.Remove(this);
-                        Destroy(gameObject);
-                    }
-                }
-                else
-                {
-                    AmandsSenseClass.DeadbodyAlwaysOn.Remove(this);
-                    Destroy(gameObject);
-                }
-            }
-            else
-            {
-                AmandsSenseClass.DeadbodyAlwaysOn.Remove(this);
-                Destroy(gameObject);
-            }
-        }
-        public void Update()
-        {
-            if (Camera.main != null)
-            {
-                transform.LookAt(Camera.main.transform.position, Vector3.up);
-            }
-            if (UpdateOpacity)
-            {
-                if (StartOpacity)
-                {
-                    Opacity += AmandsSensePlugin.OpacitySpeed.Value * Time.deltaTime;
-                    if (Opacity >= 1f)
-                    {
-                        UpdateOpacity = false;
-                        StartOpacity = false;
-                    }
-                }
-                else
-                {
-                    Opacity -= AmandsSensePlugin.OpacitySpeed.Value * Time.deltaTime;
-                    if (Opacity <= 0f)
-                    {
-                        UpdateOpacity = false;
-                        AmandsSenseClass.DeadbodyAlwaysOn.Remove(this);
-                        Destroy(gameObject);
-                    }
-                }
-                if (spriteRenderer != null && light != null)
-                {
-                    spriteRenderer.color = new Color(color.r, color.g, color.b, color.a * Opacity * 0.5f);
-                    light.intensity = AmandsSensePlugin.LightIntensity.Value * Opacity * 0.5f;
-                }
-            }
-        }
     }
     public enum ESenseItemType
     {
@@ -2681,5 +2565,29 @@ namespace AmandsSense
         NonFlea,
         WishList,
         Rare
+    }
+    public enum ESenseWorldType
+    {
+        Item,
+        Container,
+        Deadbody,
+        Drawer
+    }
+    public enum EEnableSense
+    {
+        Off,
+        On,
+        OnText
+    }
+    public struct SenseDeadPlayerStruct
+    {
+        public Player victim;
+        public Player aggressor;
+
+        public SenseDeadPlayerStruct(Player Victim, Player Aggressor)
+        {
+            victim = Victim;
+            aggressor = Aggressor;
+        }
     }
 }
