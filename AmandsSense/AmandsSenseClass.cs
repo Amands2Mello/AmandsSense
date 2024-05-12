@@ -20,11 +20,13 @@ namespace AmandsSense
 {
     public class AmandsSenseClass : MonoBehaviour
     {
-        public static LocalPlayer localPlayer;
+        public static Player Player;
         public static InventoryControllerClass inventoryControllerClass;
 
-        public static LayerMask SphereInteractiveLayerMask = LayerMask.GetMask("Interactive");
-        public static LayerMask SphereDeadbodyLayerMask = LayerMask.GetMask("Deadbody");
+        public static RaycastHit hit;
+        public static LayerMask LowLayerMask;
+        public static LayerMask HighLayerMask;
+        public static LayerMask FoliageLayerMask;
 
         public static float CooldownTime = 0f;
         public static float AlwaysOnTime = 0f;
@@ -42,8 +44,8 @@ namespace AmandsSense
         public static Vector3[] SenseOverlapLocations = new Vector3[9] { Vector3.zero, Vector3.forward, Vector3.back, Vector3.left, Vector3.right, Vector3.forward + Vector3.left, Vector3.forward + Vector3.right, Vector3.back + Vector3.left, Vector3.back + Vector3.right };
         public static int CurrentOverlapLocation = 9;
 
-        public static LayerMask BoxInteractiveLayerMask = LayerMask.GetMask("Interactive");
-        public static LayerMask BoxDeadbodyLayerMask = LayerMask.GetMask("Deadbody");
+        public static LayerMask BoxInteractiveLayerMask;
+        public static LayerMask BoxDeadbodyLayerMask;
         public static int[] CurrentOverlapCount = new int[9];
         public static Collider[] CurrentOverlapLoctionColliders = new Collider[100];
 
@@ -54,12 +56,23 @@ namespace AmandsSense
         public static List<AmandsSenseExfil> SenseExfils = new List<AmandsSenseExfil>();
         public static AmandsSenseExfil ClosestAmandsSenseExfil = null;
 
+        public static List<Item> SenseItems = new List<Item>();
 
+        public static Transform parent;
         public void OnGUI()
         {
             /*GUILayout.BeginArea(new Rect(20, 10, 1280, 720));
             GUILayout.Label("SenseWorlds " + SenseWorlds.Count().ToString());
             GUILayout.EndArea();*/
+        }
+        private void Awake()
+        {
+            LowLayerMask = LayerMask.GetMask("Terrain", "LowPolyCollider", "HitCollider");
+            HighLayerMask = LayerMask.GetMask("Terrain", "HighPolyCollider", "HitCollider");
+            FoliageLayerMask = LayerMask.GetMask("Terrain", "HighPolyCollider", "HitCollider", "Foliage");
+
+            BoxInteractiveLayerMask = LayerMask.GetMask("Interactive");
+            BoxDeadbodyLayerMask = LayerMask.GetMask("Deadbody");
         }
         public void Start()
         {
@@ -68,20 +81,21 @@ namespace AmandsSense
         }
         public void Update()
         {
-            if (gameObject != null && localPlayer != null && AmandsSensePlugin.EnableSense.Value != EEnableSense.Off)
+            if (gameObject != null && Player != null && AmandsSensePlugin.EnableSense.Value != EEnableSense.Off)
             {
                 if (CurrentOverlapLocation <= 8)
                 {
-                    int CurrentOverlapCountTest = Physics.OverlapBoxNonAlloc(localPlayer.Position + (Vector3)(SenseOverlapLocations[CurrentOverlapLocation] * ((AmandsSensePlugin.Radius.Value * 2f) / 3f)), (Vector3.one * ((AmandsSensePlugin.Radius.Value * 2f) / 3f)), CurrentOverlapLoctionColliders, Quaternion.Euler(0f, 0f, 0f), BoxInteractiveLayerMask, QueryTriggerInteraction.Collide);
+                    int CurrentOverlapCountTest = Physics.OverlapBoxNonAlloc(Player.Position + (Vector3)(SenseOverlapLocations[CurrentOverlapLocation] * ((AmandsSensePlugin.Radius.Value * 2f) / 3f)), (Vector3.one * ((AmandsSensePlugin.Radius.Value * 2f) / 3f)), CurrentOverlapLoctionColliders, Quaternion.Euler(0f, 0f, 0f), BoxInteractiveLayerMask, QueryTriggerInteraction.Collide);
                     for (int i = 0; i < CurrentOverlapCountTest; i++)
                     {
                         if (!SenseWorlds.ContainsKey(CurrentOverlapLoctionColliders[i].GetInstanceID()))
                         {
                             GameObject SenseWorldGameObject = new GameObject("SenseWorld");
                             AmandsSenseWorld amandsSenseWorld = SenseWorldGameObject.AddComponent<AmandsSenseWorld>();
-                            amandsSenseWorld.SenseCollider = CurrentOverlapLoctionColliders[i];
-                            amandsSenseWorld.Id = amandsSenseWorld.SenseCollider.GetInstanceID();
-                            amandsSenseWorld.Delay = Vector3.Distance(localPlayer.Position, amandsSenseWorld.SenseCollider.transform.position) / AmandsSensePlugin.Speed.Value;
+                            amandsSenseWorld.OwnerCollider = CurrentOverlapLoctionColliders[i];
+                            amandsSenseWorld.OwnerGameObject = amandsSenseWorld.OwnerCollider.gameObject;
+                            amandsSenseWorld.Id = amandsSenseWorld.OwnerCollider.GetInstanceID();
+                            amandsSenseWorld.Delay = Vector3.Distance(Player.Position, amandsSenseWorld.OwnerCollider.transform.position) / AmandsSensePlugin.Speed.Value;
                             SenseWorlds.Add(amandsSenseWorld.Id, amandsSenseWorld);
                         }
                         else
@@ -166,14 +180,16 @@ namespace AmandsSense
         {
             foreach (SenseDeadPlayerStruct deadPlayer in DeadPlayers)
             {
-                if ((Vector3.Distance(localPlayer.Position, deadPlayer.victim.Position)) < AmandsSensePlugin.DeadPlayerRadius.Value)
+                if ((Vector3.Distance(Player.Position, deadPlayer.victim.Position)) < AmandsSensePlugin.DeadPlayerRadius.Value)
                 {
                     if (!SenseWorlds.ContainsKey(deadPlayer.victim.GetInstanceID()))
                     {
                         GameObject SenseWorldGameObject = new GameObject("SenseWorld");
                         AmandsSenseWorld amandsSenseWorld = SenseWorldGameObject.AddComponent<AmandsSenseWorld>();
+                        amandsSenseWorld.OwnerGameObject = deadPlayer.victim.gameObject;
                         amandsSenseWorld.Id = deadPlayer.victim.GetInstanceID();
-                        amandsSenseWorld.Delay = Vector3.Distance(localPlayer.Position, deadPlayer.victim.Position) / AmandsSensePlugin.Speed.Value;
+                        amandsSenseWorld.Delay = Vector3.Distance(Player.Position, deadPlayer.victim.Position) / AmandsSensePlugin.Speed.Value;
+                        amandsSenseWorld.Lazy = false;
                         amandsSenseWorld.eSenseWorldType = ESenseWorldType.Deadbody;
                         amandsSenseWorld.SenseDeadPlayer = deadPlayer.victim as LocalPlayer;
                         SenseWorlds.Add(amandsSenseWorld.Id, amandsSenseWorld);
@@ -192,10 +208,10 @@ namespace AmandsSense
             if (ClosestAmandsSenseExfil != null && ClosestAmandsSenseExfil.light != null) ClosestAmandsSenseExfil.light.shadows = LightShadows.None;
             foreach (AmandsSenseExfil senseExfil in SenseExfils)
             {
-                if (localPlayer != null && Vector3.Distance(senseExfil.transform.position,localPlayer.gameObject.transform.position) < ClosestDistance)
+                if (Player != null && Vector3.Distance(senseExfil.transform.position,Player.gameObject.transform.position) < ClosestDistance)
                 {
                     ClosestAmandsSenseExfil = senseExfil;
-                    ClosestDistance = Vector3.Distance(senseExfil.transform.position, localPlayer.gameObject.transform.position);
+                    ClosestDistance = Vector3.Distance(senseExfil.transform.position, Player.gameObject.transform.position);
                 }
 
                 if (senseExfil.Intensity > 0.5f)
@@ -502,9 +518,10 @@ namespace AmandsSense
     }
     public class AmandsSenseWorld : MonoBehaviour
     {
+        public bool Lazy = true;
         public ESenseWorldType eSenseWorldType = ESenseWorldType.Item;
-
-        public Collider SenseCollider;
+        public GameObject OwnerGameObject;
+        public Collider OwnerCollider;
 
         public LocalPlayer SenseDeadPlayer;
 
@@ -536,121 +553,105 @@ namespace AmandsSense
                 RemoveSense();
                 return;
             }
-            if (eSenseWorldType == ESenseWorldType.Deadbody)
-            {
-                if (SenseDeadPlayer == null || (SenseDeadPlayer != null && !SenseDeadPlayer.gameObject.activeSelf))
-                {
-                    RemoveSense();
-                    return;
-                }
-            }
-            else if (SenseCollider == null || (SenseCollider != null && !SenseCollider.gameObject.activeSelf))
+
+            if (OwnerGameObject == null || (OwnerGameObject != null & !OwnerGameObject.activeSelf))
             {
                 RemoveSense();
                 return;
             }
-
-            LifeSpan = 0f;
-
             if (Starting)
             {
-                enabled = true;
-                UpdateIntensity = true;
-
-                if (eSenseWorldType == ESenseWorldType.Deadbody && SenseDeadPlayer != null)
+                if (OwnerGameObject != null)
                 {
-                    transform.position = SenseDeadPlayer.Position;
+                    transform.position = OwnerGameObject.transform.position;
                 }
-                else if (SenseCollider != null)
-                {
-                    transform.position = SenseCollider.transform.position;
-                }
-                if (AmandsSenseClass.localPlayer != null && (transform.position.y < AmandsSenseClass.localPlayer.Position.y + AmandsSensePlugin.MinHeight.Value || transform.position.y > AmandsSenseClass.localPlayer.Position.y + AmandsSensePlugin.MaxHeight.Value))
+                if (HeightCheck())
                 {
                     RemoveSense();
                     return;
                 }
+
+                enabled = true;
+                UpdateIntensity = true;
 
                 amandsSenseConstructorGameObject = new GameObject("Constructor");
                 amandsSenseConstructorGameObject.transform.SetParent(gameObject.transform, false);
                 amandsSenseConstructorGameObject.transform.localScale = Vector3.one * AmandsSensePlugin.Size.Value;
 
-                switch (eSenseWorldType)
+                if (Lazy)
                 {
-                    case ESenseWorldType.Item:
-                    case ESenseWorldType.Container:
-                    case ESenseWorldType.Drawer:
-                        ObservedLootItem observedLootItem = SenseCollider.transform.gameObject.GetComponent<ObservedLootItem>();
-                        if (observedLootItem != null)
+                    ObservedLootItem observedLootItem = OwnerGameObject.GetComponent<ObservedLootItem>();
+                    if (observedLootItem != null)
+                    {
+                        eSenseWorldType = ESenseWorldType.Item;
+                        amandsSenseConstructor = amandsSenseConstructorGameObject.AddComponent<AmandsSenseItem>();
+                        amandsSenseConstructor.amandsSenseWorld = this;
+                        amandsSenseConstructor.Construct();
+                        amandsSenseConstructor.SetSense(observedLootItem);
+                    }
+                    else
+                    {
+                        LootableContainer lootableContainer = OwnerGameObject.GetComponent<LootableContainer>();
+                        if (lootableContainer != null)
                         {
-                            eSenseWorldType = ESenseWorldType.Item;
-                            amandsSenseConstructor = amandsSenseConstructorGameObject.AddComponent<AmandsSenseItem>();
-                            amandsSenseConstructor.amandsSenseWorld = this;
-                            amandsSenseConstructor.Construct();
-                            amandsSenseConstructor.SetSense(observedLootItem);
-                        }
-                        else
-                        {
-                            LootableContainer lootableContainer = SenseCollider.transform.gameObject.GetComponent<LootableContainer>();
-                            if (lootableContainer != null)
+                            if (lootableContainer.ItemOwner.ContainerName == "DRAWER")
                             {
-                                if (lootableContainer.ItemOwner.ContainerName == "DRAWER")
-                                {
-                                    eSenseWorldType = ESenseWorldType.Drawer;
-                                    amandsSenseConstructorGameObject.transform.localPosition = new Vector3(-0.08f, 0.05f, 0);
-                                    amandsSenseConstructorGameObject.transform.localRotation = Quaternion.Euler(90, 0, 0);
-                                }
-                                else
-                                {
-                                    eSenseWorldType = ESenseWorldType.Container;
-                                }
-
-                                amandsSenseConstructor = amandsSenseConstructorGameObject.AddComponent<AmandsSenseContainer>();
-                                amandsSenseConstructor.amandsSenseWorld = this;
-                                amandsSenseConstructor.Construct();
-                                amandsSenseConstructor.SetSense(lootableContainer);
+                                eSenseWorldType = ESenseWorldType.Drawer;
+                                amandsSenseConstructorGameObject.transform.localPosition = new Vector3(-0.08f, 0.05f, 0);
+                                amandsSenseConstructorGameObject.transform.localRotation = Quaternion.Euler(90, 0, 0);
                             }
                             else
                             {
-                                RemoveSense();
-                                return;
+                                eSenseWorldType = ESenseWorldType.Container;
                             }
+
+                            amandsSenseConstructor = amandsSenseConstructorGameObject.AddComponent<AmandsSenseContainer>();
+                            amandsSenseConstructor.amandsSenseWorld = this;
+                            amandsSenseConstructor.Construct();
+                            amandsSenseConstructor.SetSense(lootableContainer);
                         }
-                        break;
-                    case ESenseWorldType.Deadbody:
-                        amandsSenseConstructor = amandsSenseConstructorGameObject.AddComponent<AmandsSenseDeadPlayer>();
-                        amandsSenseConstructor.amandsSenseWorld = this;
-                        amandsSenseConstructor.Construct();
-                        amandsSenseConstructor.SetSense(SenseDeadPlayer);
-                        break;
+                        else
+                        {
+                            RemoveSense();
+                            return;
+                        }
+                    }
+                }
+                else
+                {
+                    switch (eSenseWorldType)
+                    {
+                        case ESenseWorldType.Item:
+                            break;
+                        case ESenseWorldType.Container:
+                            break;
+                        case ESenseWorldType.Drawer:
+                            break;
+                        case ESenseWorldType.Deadbody:
+                            amandsSenseConstructor = amandsSenseConstructorGameObject.AddComponent<AmandsSenseDeadPlayer>();
+                            amandsSenseConstructor.amandsSenseWorld = this;
+                            amandsSenseConstructor.Construct();
+                            amandsSenseConstructor.SetSense(SenseDeadPlayer);
+                            break;
+                    }
                 }
 
                 // SenseWorld Starting Posittion
                 switch (eSenseWorldType)
                 {
                     case ESenseWorldType.Item:
-                        gameObject.transform.position = new Vector3(SenseCollider.bounds.center.x, SenseCollider.ClosestPoint(SenseCollider.bounds.center + (Vector3.up * 10f)).y + AmandsSensePlugin.VerticalOffset.Value, SenseCollider.bounds.center.z);
-                        break;
                     case ESenseWorldType.Container:
-                        if (SenseCollider != null)
-                        {
-                            BoxCollider boxCollider = SenseCollider as BoxCollider;
-                            if (boxCollider != null)
-                            {
-                                Vector3 position = SenseCollider.transform.TransformPoint(boxCollider.center);
-                                gameObject.transform.position = new Vector3(position.x, SenseCollider.ClosestPoint(position + (Vector3.up * 100f)).y + AmandsSensePlugin.VerticalOffset.Value, position.z);
-                            }
-                        }
+                        gameObject.transform.position = new Vector3(OwnerCollider.bounds.center.x, OwnerCollider.ClosestPoint(OwnerCollider.bounds.center + (Vector3.up * 10f)).y + AmandsSensePlugin.VerticalOffset.Value, OwnerCollider.bounds.center.z);
                         break;
                     case ESenseWorldType.Drawer:
-                        if (SenseCollider != null)
+                        if (OwnerCollider != null)
                         {
-                            BoxCollider boxCollider = SenseCollider as BoxCollider;
+                            BoxCollider boxCollider = OwnerCollider as BoxCollider;
                             if (boxCollider != null)
                             {
-                                Vector3 position = SenseCollider.transform.TransformPoint(boxCollider.center);
+                                Vector3 position = OwnerCollider.transform.TransformPoint(boxCollider.center);
                                 gameObject.transform.position = position;
-                                gameObject.transform.rotation = SenseCollider.transform.rotation;
+                                gameObject.transform.rotation = OwnerCollider.transform.rotation;
                             }
                         }
                         break;
@@ -664,11 +665,14 @@ namespace AmandsSense
             }
             else
             {
-                if (AmandsSenseClass.localPlayer != null && (transform.position.y < AmandsSenseClass.localPlayer.Position.y + AmandsSensePlugin.MinHeight.Value || transform.position.y > AmandsSenseClass.localPlayer.Position.y + AmandsSensePlugin.MaxHeight.Value))
+                LifeSpan = 0f;
+
+                if (HeightCheck())
                 {
                     RemoveSense();
                     return;
                 }
+
 
                 if (amandsSenseConstructor != null) amandsSenseConstructor.UpdateSense();
 
@@ -676,15 +680,12 @@ namespace AmandsSense
                 switch (eSenseWorldType)
                 {
                     case ESenseWorldType.Item:
-                        gameObject.transform.position = new Vector3(SenseCollider.bounds.center.x, SenseCollider.ClosestPoint(SenseCollider.bounds.center + (Vector3.up * 10f)).y + AmandsSensePlugin.VerticalOffset.Value, SenseCollider.bounds.center.z);
+                        gameObject.transform.position = new Vector3(OwnerCollider.bounds.center.x, OwnerCollider.ClosestPoint(OwnerCollider.bounds.center + (Vector3.up * 10f)).y + AmandsSensePlugin.VerticalOffset.Value, OwnerCollider.bounds.center.z);
                         break;
                     case ESenseWorldType.Container:
                         break;
                     case ESenseWorldType.Deadbody:
-                        if (amandsSenseConstructor != null)
-                        {
-                            amandsSenseConstructor.UpdateSenseLocation();
-                        }
+                        if (amandsSenseConstructor != null) amandsSenseConstructor.UpdateSenseLocation();
                         break;
                     case ESenseWorldType.Drawer:
                         break;
@@ -698,8 +699,20 @@ namespace AmandsSense
             if (Waiting || UpdateIntensity) return;
 
             LifeSpan = 0f;
-            Delay = Vector3.Distance(AmandsSenseClass.localPlayer.Position, gameObject.transform.position) / AmandsSensePlugin.Speed.Value;
+            Delay = Vector3.Distance(AmandsSenseClass.Player.Position, gameObject.transform.position) / AmandsSensePlugin.Speed.Value;
             WaitAndStart();
+        }
+        public bool HeightCheck()
+        {
+            switch (eSenseWorldType)
+            {
+                case ESenseWorldType.Item:
+                case ESenseWorldType.Container:
+                case ESenseWorldType.Drawer:
+                case ESenseWorldType.Deadbody:
+                    return AmandsSenseClass.Player != null && (transform.position.y < AmandsSenseClass.Player.Position.y + AmandsSensePlugin.MinHeight.Value || transform.position.y > AmandsSenseClass.Player.Position.y + AmandsSensePlugin.MaxHeight.Value);
+            }
+            return false;
         }
         public void RemoveSense()
         {
@@ -793,6 +806,7 @@ namespace AmandsSense
             GameObject spriteGameObject = new GameObject("Sprite");
             spriteGameObject.transform.SetParent(gameObject.transform, false);
             RectTransform spriteRectTransform = spriteGameObject.AddComponent<RectTransform>();
+            spriteRectTransform.localScale = Vector3.one * AmandsSensePlugin.IconSize.Value;
 
             // SenseConstructor Sprite
             spriteRenderer = spriteGameObject.AddComponent<SpriteRenderer>();
@@ -812,7 +826,7 @@ namespace AmandsSense
             textGameObject = new GameObject("Text");
             textGameObject.transform.SetParent(gameObject.transform, false);
             RectTransform textRectTransform = textGameObject.AddComponent<RectTransform>();
-            textRectTransform.localPosition = new Vector3(0.15f, 0, 0);
+            textRectTransform.localPosition = new Vector3(AmandsSensePlugin.TextOffset.Value, 0, 0);
             textRectTransform.pivot = new Vector2(0, 0.5f);
 
             // SenseConstructor VerticalLayoutGroup
@@ -886,7 +900,6 @@ namespace AmandsSense
 
         }
     }
-
     public class AmandsSenseItem : AmandsSenseConstructor
     {
         public ObservedLootItem observedLootItem;
@@ -902,6 +915,8 @@ namespace AmandsSense
             observedLootItem = ObservedLootItem;
             if (observedLootItem != null && observedLootItem.gameObject.activeSelf && observedLootItem.Item != null)
             {
+                AmandsSenseClass.SenseItems.Add(observedLootItem.Item);
+
                 ItemId = observedLootItem.ItemId;
 
                 // Weapon SenseItem Color and Sprite
@@ -1295,7 +1310,7 @@ namespace AmandsSense
                     {
                         color = AmandsSensePlugin.NonFleaItemsColor.Value;
                     }
-                    if (AmandsSenseClass.localPlayer != null && AmandsSenseClass.localPlayer.Profile != null && AmandsSenseClass.localPlayer.Profile.WishList != null && AmandsSenseClass.localPlayer.Profile.WishList.Contains(observedLootItem.Item.TemplateId))
+                    if (AmandsSenseClass.Player != null && AmandsSenseClass.Player.Profile != null && AmandsSenseClass.Player.Profile.WishList != null && AmandsSenseClass.Player.Profile.WishList.Contains(observedLootItem.Item.TemplateId))
                     {
                         color = AmandsSensePlugin.WishListItemsColor.Value;
                     }
@@ -1438,10 +1453,13 @@ namespace AmandsSense
         }
         public override void RemoveSense()
         {
+            if (observedLootItem != null && observedLootItem.gameObject.activeSelf && observedLootItem.Item != null)
+            {
+                AmandsSenseClass.SenseItems.Remove(observedLootItem.Item);
+            }
             //Destroy(gameObject);
         }
     }
-
     public class AmandsSenseContainer : AmandsSenseConstructor
     {
         public LootableContainer lootableContainer;
@@ -1464,7 +1482,7 @@ namespace AmandsSense
 
                 // SenseContainer Items
                 ESenseItemColor eSenseItemColor = ESenseItemColor.Default;
-                if (lootableContainer.ItemOwner != null && AmandsSenseClass.itemsJsonClass != null && AmandsSenseClass.itemsJsonClass.RareItems != null && AmandsSenseClass.itemsJsonClass.KappaItems != null && AmandsSenseClass.itemsJsonClass.NonFleaExclude != null && AmandsSenseClass.localPlayer.Profile != null && AmandsSenseClass.localPlayer.Profile.WishList != null)
+                if (lootableContainer.ItemOwner != null && AmandsSenseClass.itemsJsonClass != null && AmandsSenseClass.itemsJsonClass.RareItems != null && AmandsSenseClass.itemsJsonClass.KappaItems != null && AmandsSenseClass.itemsJsonClass.NonFleaExclude != null && AmandsSenseClass.Player.Profile != null && AmandsSenseClass.Player.Profile.WishList != null)
                 {
                     LootItemClass lootItemClass = lootableContainer.ItemOwner.RootItem as LootItemClass;
                     if (lootItemClass != null)
@@ -1484,7 +1502,7 @@ namespace AmandsSense
                                         {
                                             eSenseItemColor = ESenseItemColor.Rare;
                                         }
-                                        else if (AmandsSenseClass.localPlayer.Profile.WishList.Contains(item.TemplateId) && eSenseItemColor != ESenseItemColor.Rare)
+                                        else if (AmandsSenseClass.Player.Profile.WishList.Contains(item.TemplateId) && eSenseItemColor != ESenseItemColor.Rare)
                                         {
                                             eSenseItemColor = ESenseItemColor.WishList;
                                         }
@@ -1614,7 +1632,7 @@ namespace AmandsSense
 
                 // SenseContainer Items
                 ESenseItemColor eSenseItemColor = ESenseItemColor.Default;
-                if (lootableContainer.ItemOwner != null && AmandsSenseClass.itemsJsonClass != null && AmandsSenseClass.itemsJsonClass.RareItems != null && AmandsSenseClass.itemsJsonClass.KappaItems != null && AmandsSenseClass.itemsJsonClass.NonFleaExclude != null && AmandsSenseClass.localPlayer.Profile != null && AmandsSenseClass.localPlayer.Profile.WishList != null)
+                if (lootableContainer.ItemOwner != null && AmandsSenseClass.itemsJsonClass != null && AmandsSenseClass.itemsJsonClass.RareItems != null && AmandsSenseClass.itemsJsonClass.KappaItems != null && AmandsSenseClass.itemsJsonClass.NonFleaExclude != null && AmandsSenseClass.Player.Profile != null && AmandsSenseClass.Player.Profile.WishList != null)
                 {
                     LootItemClass lootItemClass = lootableContainer.ItemOwner.RootItem as LootItemClass;
                     if (lootItemClass != null)
@@ -1634,7 +1652,7 @@ namespace AmandsSense
                                         {
                                             eSenseItemColor = ESenseItemColor.Rare;
                                         }
-                                        else if (AmandsSenseClass.localPlayer.Profile.WishList.Contains(item.TemplateId) && eSenseItemColor != ESenseItemColor.Rare)
+                                        else if (AmandsSenseClass.Player.Profile.WishList.Contains(item.TemplateId) && eSenseItemColor != ESenseItemColor.Rare)
                                         {
                                             eSenseItemColor = ESenseItemColor.WishList;
                                         }
@@ -1787,7 +1805,7 @@ namespace AmandsSense
                 emptyDeadPlayer = false;
                 ESenseItemColor eSenseItemColor = ESenseItemColor.Default;
 
-                if (AmandsSenseClass.itemsJsonClass != null && AmandsSenseClass.itemsJsonClass.RareItems != null && AmandsSenseClass.itemsJsonClass.KappaItems != null && AmandsSenseClass.itemsJsonClass.NonFleaExclude != null && AmandsSenseClass.localPlayer != null && AmandsSenseClass.localPlayer.Profile != null && AmandsSenseClass.localPlayer.Profile.WishList != null)
+                if (AmandsSenseClass.itemsJsonClass != null && AmandsSenseClass.itemsJsonClass.RareItems != null && AmandsSenseClass.itemsJsonClass.KappaItems != null && AmandsSenseClass.itemsJsonClass.NonFleaExclude != null && AmandsSenseClass.Player != null && AmandsSenseClass.Player.Profile != null && AmandsSenseClass.Player.Profile.WishList != null)
                 {
                     if (DeadPlayer.Profile != null)
                     {
@@ -1849,7 +1867,7 @@ namespace AmandsSense
                                     {
                                         eSenseItemColor = ESenseItemColor.Rare;
                                     }
-                                    else if (AmandsSenseClass.localPlayer.Profile.WishList.Contains(item.TemplateId) && eSenseItemColor != ESenseItemColor.Rare)
+                                    else if (AmandsSenseClass.Player.Profile.WishList.Contains(item.TemplateId) && eSenseItemColor != ESenseItemColor.Rare)
                                     {
                                         eSenseItemColor = ESenseItemColor.WishList;
                                     }
@@ -1975,7 +1993,7 @@ namespace AmandsSense
                 emptyDeadPlayer = false;
                 ESenseItemColor eSenseItemColor = ESenseItemColor.Default;
 
-                if (AmandsSenseClass.itemsJsonClass != null && AmandsSenseClass.itemsJsonClass.RareItems != null && AmandsSenseClass.itemsJsonClass.KappaItems != null && AmandsSenseClass.itemsJsonClass.NonFleaExclude != null && AmandsSenseClass.localPlayer != null && AmandsSenseClass.localPlayer.Profile != null && AmandsSenseClass.localPlayer.Profile.WishList != null)
+                if (AmandsSenseClass.itemsJsonClass != null && AmandsSenseClass.itemsJsonClass.RareItems != null && AmandsSenseClass.itemsJsonClass.KappaItems != null && AmandsSenseClass.itemsJsonClass.NonFleaExclude != null && AmandsSenseClass.Player != null && AmandsSenseClass.Player.Profile != null && AmandsSenseClass.Player.Profile.WishList != null)
                 {
                     if (DeadPlayer != null && DeadPlayer.Profile != null)
                     {
@@ -2022,7 +2040,7 @@ namespace AmandsSense
                                     {
                                         eSenseItemColor = ESenseItemColor.Rare;
                                     }
-                                    else if (AmandsSenseClass.localPlayer.Profile.WishList.Contains(item.TemplateId) && eSenseItemColor != ESenseItemColor.Rare)
+                                    else if (AmandsSenseClass.Player.Profile.WishList.Contains(item.TemplateId) && eSenseItemColor != ESenseItemColor.Rare)
                                     {
                                         eSenseItemColor = ESenseItemColor.WishList;
                                     }
@@ -2286,10 +2304,10 @@ namespace AmandsSense
             color = Color.green;
             textColor = AmandsSensePlugin.TextColor.Value;
 
-            if (exfiltrationPoint != null && exfiltrationPoint.gameObject.activeSelf && AmandsSenseClass.localPlayer != null && exfiltrationPoint.InfiltrationMatch(AmandsSenseClass.localPlayer))
+            if (exfiltrationPoint != null && exfiltrationPoint.gameObject.activeSelf && AmandsSenseClass.Player != null && exfiltrationPoint.InfiltrationMatch(AmandsSenseClass.Player))
             {
                 sprite = AmandsSenseClass.LoadedSprites["Exfil.png"];
-                bool Unmet = exfiltrationPoint.UnmetRequirements(AmandsSenseClass.localPlayer).ToArray().Any();
+                bool Unmet = exfiltrationPoint.UnmetRequirements(AmandsSenseClass.Player).ToArray().Any();
                 color = Unmet ? AmandsSensePlugin.ExfilUnmetColor.Value : AmandsSensePlugin.ExfilColor.Value;
                 // AmandsSenseExfil Sprite
                 if (spriteRenderer != null)
@@ -2329,7 +2347,7 @@ namespace AmandsSense
                     string tips = "";
                     if (Unmet)
                     {
-                        foreach (string tip in exfiltrationPoint.GetTips(AmandsSenseClass.localPlayer.ProfileId))
+                        foreach (string tip in exfiltrationPoint.GetTips(AmandsSenseClass.Player.ProfileId))
                         {
                             tips = tips + tip + "\n";
                         }
@@ -2363,10 +2381,10 @@ namespace AmandsSense
         }
         public void UpdateSense()
         {
-            if (exfiltrationPoint != null && exfiltrationPoint.gameObject.activeSelf && AmandsSenseClass.localPlayer != null && exfiltrationPoint.InfiltrationMatch(AmandsSenseClass.localPlayer))
+            if (exfiltrationPoint != null && exfiltrationPoint.gameObject.activeSelf && AmandsSenseClass.Player != null && exfiltrationPoint.InfiltrationMatch(AmandsSenseClass.Player))
             {
                 sprite = AmandsSenseClass.LoadedSprites["Exfil.png"];
-                bool Unmet = exfiltrationPoint.UnmetRequirements(AmandsSenseClass.localPlayer).ToArray().Any();
+                bool Unmet = exfiltrationPoint.UnmetRequirements(AmandsSenseClass.Player).ToArray().Any();
                 color = Unmet ? AmandsSensePlugin.ExfilUnmetColor.Value : AmandsSensePlugin.ExfilColor.Value;
                 // AmandsSenseExfil Sprite
                 if (spriteRenderer != null)
@@ -2405,7 +2423,7 @@ namespace AmandsSense
                     string tips = "";
                     if (Unmet)
                     {
-                        foreach (string tip in exfiltrationPoint.GetTips(AmandsSenseClass.localPlayer.ProfileId))
+                        foreach (string tip in exfiltrationPoint.GetTips(AmandsSenseClass.Player.ProfileId))
                         {
                             tips = tips + tip + "\n";
                         }
