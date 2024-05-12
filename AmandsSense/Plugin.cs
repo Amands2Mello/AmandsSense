@@ -8,6 +8,8 @@ using HarmonyLib;
 using EFT;
 using System.Threading.Tasks;
 using EFT.Interactive;
+using EFT.HealthSystem;
+using EFT.UI;
 
 namespace AmandsSense
 {
@@ -38,9 +40,11 @@ namespace AmandsSense
         public static ConfigEntry<bool> UseBackgroundColor { get; set; }
 
         public static ConfigEntry<float> Size { get; set; }
+        public static ConfigEntry<float> IconSize { get; set; }
         public static ConfigEntry<float> SizeClamp { get; set; }
 
         public static ConfigEntry<float> VerticalOffset { get; set; }
+        public static ConfigEntry<float> TextOffset { get; set; }
         public static ConfigEntry<float> ExfilVerticalOffset { get; set; }
 
         public static ConfigEntry<float> IntensitySpeed { get; set; }
@@ -150,10 +154,12 @@ namespace AmandsSense
 
             UseBackgroundColor = Config.Bind("AmandsSense", "Use Background Color", false, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 250 }));
 
-            Size = Config.Bind("AmandsSense", "Size", 0.5f, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 240 }));
+            Size = Config.Bind("AmandsSense", "Size", 0.5f, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 250 }));
+            IconSize = Config.Bind("AmandsSense", "IconSize", 0.1f, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 240 }));
             SizeClamp = Config.Bind("AmandsSense", "Size Clamp", 3.0f, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 230, IsAdvanced = true }));
 
             VerticalOffset = Config.Bind("AmandsSense", "Vertical Offset", 0.22f, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 220, IsAdvanced = true }));
+            TextOffset = Config.Bind("AmandsSense", "Text Offset", 0.15f, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 217, IsAdvanced = true }));
             ExfilVerticalOffset = Config.Bind("AmandsSense", "ExfilVertical Offset", 40f, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 215, IsAdvanced = true }));
 
             IntensitySpeed = Config.Bind("AmandsSense", "Intensity Speed", 2f, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 210, IsAdvanced = true }));
@@ -243,7 +249,7 @@ namespace AmandsSense
             MapsColor = Config.Bind("Colors", "MapsColor", new Color(0.84f, 0.88f, 0.95f, 0.8f), new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 20 }));
             MoneyColor = Config.Bind("Colors", "MoneyColor", new Color(0.84f, 0.88f, 0.95f, 0.8f), new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 10 }));
 
-            new AmandsLocalPlayerPatch().Enable();
+            new AmandsPlayerPatch().Enable();
             new AmandsKillPatch().Enable();
             new AmandsSenseExfiltrationPatch().Enable();
             new AmandsSensePrismEffectsPatch().Enable();
@@ -251,20 +257,19 @@ namespace AmandsSense
             AmandsSenseHelper.Init();
         }
     }
-    public class AmandsLocalPlayerPatch : ModulePatch
+    public class AmandsPlayerPatch : ModulePatch
     {
         protected override MethodBase GetTargetMethod()
         {
-            return typeof(LocalPlayer).GetMethod("Create", BindingFlags.Static | BindingFlags.Public);
+            return typeof(Player).GetMethod("Init", BindingFlags.Instance | BindingFlags.Public);
         }
         [PatchPostfix]
-        private static void PatchPostFix(ref Task<LocalPlayer> __result)
+        private static void PatchPostFix(ref Player __instance)
         {
-            LocalPlayer localPlayer = __result.Result;
-            if (localPlayer != null && localPlayer.IsYourPlayer)
+            if (__instance != null && __instance.IsYourPlayer)
             {
-                AmandsSenseClass.localPlayer = localPlayer;
-                AmandsSenseClass.inventoryControllerClass = Traverse.Create(localPlayer).Field("_inventoryController").GetValue<InventoryControllerClass>();
+                AmandsSenseClass.Player = __instance;
+                AmandsSenseClass.inventoryControllerClass = Traverse.Create(__instance).Field("_inventoryController").GetValue<InventoryControllerClass>();
                 AmandsSenseClass.Clear();
             }
         }
