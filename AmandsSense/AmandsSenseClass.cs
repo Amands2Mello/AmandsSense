@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 using UnityEngine.Networking;
 using EFT.Interactive;
 using System.Linq;
-using Aki.Common.Utils;
+using SPT.Common.Utils;
 using Sirenix.Utilities;
 using UnityEngine.UI;
 using TMPro;
@@ -38,6 +38,8 @@ namespace AmandsSense
 
         public static float lastDoubleClickTime = 0.0f;
 
+        public static AudioSource SenseAudioSource;
+
         public static Dictionary<string, Sprite> LoadedSprites = new Dictionary<string, Sprite>();
         public static Dictionary<string, AudioClip> LoadedAudioClips = new Dictionary<string, AudioClip>();
 
@@ -59,6 +61,8 @@ namespace AmandsSense
         public static List<Item> SenseItems = new List<Item>();
 
         public static Transform parent;
+
+        public static string scene;
         public void OnGUI()
         {
             /*GUILayout.BeginArea(new Rect(20, 10, 1280, 720));
@@ -77,7 +81,7 @@ namespace AmandsSense
         public void Start()
         {
             itemsJsonClass = ReadFromJsonFile<ItemsJsonClass>((AppDomain.CurrentDomain.BaseDirectory + "/BepInEx/plugins/Sense/Items.json"));
-            ReloadFiles();
+            ReloadFiles(false);
         }
         public void Update()
         {
@@ -136,6 +140,10 @@ namespace AmandsSense
                                 Radius = 0;
                                 prismEffects.useDof = AmandsSensePlugin.useDof.Value;
                             }
+                            if (LoadedAudioClips.ContainsKey("Sense.wav"))
+                            {
+                                SenseAudioSource.PlayOneShot(LoadedAudioClips["Sense.wav"], AmandsSensePlugin.ActivateSenseVolume.Value);
+                            }
                         }
                     }
                     else
@@ -150,6 +158,10 @@ namespace AmandsSense
                             {
                                 Radius = 0;
                                 prismEffects.useDof = AmandsSensePlugin.useDof.Value;
+                            }
+                            if (LoadedAudioClips.ContainsKey("Sense.wav"))
+                            {
+                                SenseAudioSource.PlayOneShot(LoadedAudioClips["Sense.wav"], AmandsSensePlugin.ActivateSenseVolume.Value);
                             }
                         }
                     }
@@ -204,6 +216,9 @@ namespace AmandsSense
         public void ShowSenseExfils()
         {
             if (!AmandsSensePlugin.EnableExfilSense.Value) return;
+
+            if (scene == "Factory_Day" || scene == "Factory_Night" || scene == "Laboratory_Scripts") return;
+
             float ClosestDistance = 10000000000f;
             if (ClosestAmandsSenseExfil != null && ClosestAmandsSenseExfil.light != null) ClosestAmandsSenseExfil.light.shadows = LightShadows.None;
             foreach (AmandsSenseExfil senseExfil in SenseExfils)
@@ -445,13 +460,17 @@ namespace AmandsSense
                     reader.Close();
             }
         }
-        public static void ReloadFiles()
+        public static void ReloadFiles(bool onlySounds)
         {
+            if (onlySounds) goto OnlySounds;
+
             string[] Files = Directory.GetFiles(AppDomain.CurrentDomain.BaseDirectory + "/BepInEx/plugins/Sense/images/", "*.png");
             foreach (string File in Files)
             {
                 LoadSprite(File);
             }
+
+            OnlySounds:
             string[] AudioFiles = Directory.GetFiles(AppDomain.CurrentDomain.BaseDirectory + "/BepInEx/plugins/Sense/sounds/");
             foreach (string File in AudioFiles)
             {
@@ -594,7 +613,7 @@ namespace AmandsSense
                         LootableContainer lootableContainer = OwnerGameObject.GetComponent<LootableContainer>();
                         if (lootableContainer != null)
                         {
-                            if (lootableContainer.ItemOwner.ContainerName == "DRAWER")
+                            if (lootableContainer.Template == "578f87b7245977356274f2cd")
                             {
                                 eSenseWorldType = ESenseWorldType.Drawer;
                                 amandsSenseConstructorGameObject.transform.localPosition = new Vector3(-0.08f, 0.05f, 0);
@@ -904,6 +923,7 @@ namespace AmandsSense
     {
         public ObservedLootItem observedLootItem;
         public string ItemId;
+        public string type;
 
         public ESenseItemType eSenseItemType = ESenseItemType.All;
 
@@ -919,7 +939,7 @@ namespace AmandsSense
 
                 ItemId = observedLootItem.ItemId;
 
-                // Weapon SenseItem Color and Sprite
+                // Weapon SenseItem Color, Sprite and Type
                 Weapon weapon = observedLootItem.Item as Weapon;
                 if (weapon != null)
                 {
@@ -932,6 +952,7 @@ namespace AmandsSense
                             {
                                 sprite = AmandsSenseClass.LoadedSprites["icon_weapons_carbines.png"];
                             }
+                            type = AmandsSenseHelper.Localized("5b5f78e986f77447ed5636b1", EStringCase.None);
                             break;
                         case "assaultRifle":
                             eSenseItemType = ESenseItemType.AssaultRifles;
@@ -940,6 +961,7 @@ namespace AmandsSense
                             {
                                 sprite = AmandsSenseClass.LoadedSprites["icon_weapons_assaultrifles.png"];
                             }
+                            type = AmandsSenseHelper.Localized("5b5f78fc86f77409407a7f90", EStringCase.None);
                             break;
                         case "sniperRifle":
                             eSenseItemType = ESenseItemType.BoltActionRifles;
@@ -948,6 +970,7 @@ namespace AmandsSense
                             {
                                 sprite = AmandsSenseClass.LoadedSprites["icon_weapons_botaction.png"];
                             }
+                            type = AmandsSenseHelper.Localized("5b5f798886f77447ed5636b5", EStringCase.None);
                             break;
                         case "grenadeLauncher":
                             eSenseItemType = ESenseItemType.GrenadeLaunchers;
@@ -956,6 +979,7 @@ namespace AmandsSense
                             {
                                 sprite = AmandsSenseClass.LoadedSprites["icon_weapons_gl.png"];
                             }
+                            type = AmandsSenseHelper.Localized("5b5f79d186f774093f2ed3c2", EStringCase.None);
                             break;
                         case "machinegun":
                             eSenseItemType = ESenseItemType.MachineGuns;
@@ -964,6 +988,7 @@ namespace AmandsSense
                             {
                                 sprite = AmandsSenseClass.LoadedSprites["icon_weapons_mg.png"];
                             }
+                            type = AmandsSenseHelper.Localized("5b5f79a486f77409407a7f94", EStringCase.None);
                             break;
                         case "marksmanRifle":
                             eSenseItemType = ESenseItemType.MarksmanRifles;
@@ -972,6 +997,7 @@ namespace AmandsSense
                             {
                                 sprite = AmandsSenseClass.LoadedSprites["icon_weapons_dmr.png"];
                             }
+                            type = AmandsSenseHelper.Localized("5b5f791486f774093f2ed3be", EStringCase.None);
                             break;
                         case "pistol":
                             eSenseItemType = ESenseItemType.Pistols;
@@ -980,6 +1006,7 @@ namespace AmandsSense
                             {
                                 sprite = AmandsSenseClass.LoadedSprites["icon_weapons_pistols.png"];
                             }
+                            type = AmandsSenseHelper.Localized("5b5f792486f77447ed5636b3", EStringCase.None);
                             break;
                         case "smg":
                             eSenseItemType = ESenseItemType.SMGs;
@@ -988,6 +1015,7 @@ namespace AmandsSense
                             {
                                 sprite = AmandsSenseClass.LoadedSprites["icon_weapons_smg.png"];
                             }
+                            type = AmandsSenseHelper.Localized("5b5f796a86f774093f2ed3c0", EStringCase.None);
                             break;
                         case "shotgun":
                             eSenseItemType = ESenseItemType.Shotguns;
@@ -996,6 +1024,7 @@ namespace AmandsSense
                             {
                                 sprite = AmandsSenseClass.LoadedSprites["icon_weapons_shotguns.png"];
                             }
+                            type = AmandsSenseHelper.Localized("5b5f794b86f77409407a7f92", EStringCase.None);
                             break;
                         case "specialWeapon":
                             eSenseItemType = ESenseItemType.SpecialWeapons;
@@ -1004,6 +1033,7 @@ namespace AmandsSense
                             {
                                 sprite = AmandsSenseClass.LoadedSprites["icon_weapons_special.png"];
                             }
+                            type = AmandsSenseHelper.Localized("5b5f79eb86f77447ed5636b7", EStringCase.None);
                             break;
                         default:
                             eSenseItemType = AmandsSenseClass.SenseItemType(observedLootItem.Item.GetType());
@@ -1015,7 +1045,7 @@ namespace AmandsSense
                     eSenseItemType = AmandsSenseClass.SenseItemType(observedLootItem.Item.GetType());
                 }
 
-                // SenseItem Color and Sprite
+                // SenseItem Color, Sprite and Type
                 switch (eSenseItemType)
                 {
                     case ESenseItemType.All:
@@ -1024,6 +1054,7 @@ namespace AmandsSense
                         {
                             sprite = AmandsSenseClass.LoadedSprites["ObservedLootItem.png"];
                         }
+                        type = "ObservedLootItem";
                         break;
                     case ESenseItemType.Others:
                         color = AmandsSensePlugin.OthersColor.Value;
@@ -1031,6 +1062,7 @@ namespace AmandsSense
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_barter_others.png"];
                         }
+                        type = AmandsSenseHelper.Localized("5b47574386f77428ca22b2f4", EStringCase.None);
                         break;
                     case ESenseItemType.BuildingMaterials:
                         color = AmandsSensePlugin.BuildingMaterialsColor.Value;
@@ -1038,6 +1070,7 @@ namespace AmandsSense
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_barter_building.png"];
                         }
+                        type = AmandsSenseHelper.Localized("5b47574386f77428ca22b2ee", EStringCase.None);
                         break;
                     case ESenseItemType.Electronics:
                         color = AmandsSensePlugin.ElectronicsColor.Value;
@@ -1045,6 +1078,7 @@ namespace AmandsSense
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_barter_electronics.png"];
                         }
+                        type = AmandsSenseHelper.Localized("5b47574386f77428ca22b2ef", EStringCase.None);
                         break;
                     case ESenseItemType.EnergyElements:
                         color = AmandsSensePlugin.EnergyElementsColor.Value;
@@ -1052,6 +1086,7 @@ namespace AmandsSense
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_barter_energy.png"];
                         }
+                        type = AmandsSenseHelper.Localized("5b47574386f77428ca22b2ed", EStringCase.None);
                         break;
                     case ESenseItemType.FlammableMaterials:
                         color = AmandsSensePlugin.FlammableMaterialsColor.Value;
@@ -1059,6 +1094,7 @@ namespace AmandsSense
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_barter_flammable.png"];
                         }
+                        type = AmandsSenseHelper.Localized("5b47574386f77428ca22b2f2", EStringCase.None);
                         break;
                     case ESenseItemType.HouseholdMaterials:
                         color = AmandsSensePlugin.HouseholdMaterialsColor.Value;
@@ -1066,6 +1102,7 @@ namespace AmandsSense
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_barter_household.png"];
                         }
+                        type = AmandsSenseHelper.Localized("5b47574386f77428ca22b2f0", EStringCase.None);
                         break;
                     case ESenseItemType.MedicalSupplies:
                         color = AmandsSensePlugin.MedicalSuppliesColor.Value;
@@ -1073,6 +1110,7 @@ namespace AmandsSense
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_barter_medical.png"];
                         }
+                        type = AmandsSenseHelper.Localized("5b47574386f77428ca22b2f3", EStringCase.None);
                         break;
                     case ESenseItemType.Tools:
                         color = AmandsSensePlugin.ToolsColor.Value;
@@ -1080,6 +1118,7 @@ namespace AmandsSense
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_barter_tools.png"];
                         }
+                        type = AmandsSenseHelper.Localized("5b47574386f77428ca22b2f6", EStringCase.None);
                         break;
                     case ESenseItemType.Valuables:
                         color = AmandsSensePlugin.ValuablesColor.Value;
@@ -1087,6 +1126,7 @@ namespace AmandsSense
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_barter_valuables.png"];
                         }
+                        type = AmandsSenseHelper.Localized("5b47574386f77428ca22b2f1", EStringCase.None);
                         break;
                     case ESenseItemType.Backpacks:
                         color = AmandsSensePlugin.BackpacksColor.Value;
@@ -1094,6 +1134,7 @@ namespace AmandsSense
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_gear_backpacks.png"];
                         }
+                        type = AmandsSenseHelper.Localized("5b5f6f6c86f774093f2ecf0b", EStringCase.None);
                         break;
                     case ESenseItemType.BodyArmor:
                         color = AmandsSensePlugin.BodyArmorColor.Value;
@@ -1101,6 +1142,7 @@ namespace AmandsSense
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_gear_armor.png"];
                         }
+                        type = AmandsSenseHelper.Localized("5b5f701386f774093f2ecf0f", EStringCase.None);
                         break;
                     case ESenseItemType.Eyewear:
                         color = AmandsSensePlugin.EyewearColor.Value;
@@ -1108,6 +1150,7 @@ namespace AmandsSense
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_gear_visors.png"];
                         }
+                        type = AmandsSenseHelper.Localized("5b47574386f77428ca22b331", EStringCase.None);
                         break;
                     case ESenseItemType.Facecovers:
                         color = AmandsSensePlugin.FacecoversColor.Value;
@@ -1115,6 +1158,7 @@ namespace AmandsSense
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_gear_facecovers.png"];
                         }
+                        type = AmandsSenseHelper.Localized("5b47574386f77428ca22b32f", EStringCase.None);
                         break;
                     case ESenseItemType.GearComponents:
                         color = AmandsSensePlugin.GearComponentsColor.Value;
@@ -1122,6 +1166,7 @@ namespace AmandsSense
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_gear_components.png"];
                         }
+                        type = AmandsSenseHelper.Localized("5b5f704686f77447ec5d76d7", EStringCase.None);
                         break;
                     case ESenseItemType.Headgear:
                         color = AmandsSensePlugin.HeadgearColor.Value;
@@ -1129,6 +1174,7 @@ namespace AmandsSense
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_gear_headwear.png"];
                         }
+                        type = AmandsSenseHelper.Localized("5b47574386f77428ca22b330", EStringCase.None);
                         break;
                     case ESenseItemType.Headsets:
                         color = AmandsSensePlugin.HeadsetsColor.Value;
@@ -1136,6 +1182,7 @@ namespace AmandsSense
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_gear_headsets.png"];
                         }
+                        type = AmandsSenseHelper.Localized("5b5f6f3c86f774094242ef87", EStringCase.None);
                         break;
                     case ESenseItemType.SecureContainers:
                         color = AmandsSensePlugin.SecureContainersColor.Value;
@@ -1143,6 +1190,7 @@ namespace AmandsSense
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_gear_secured.png"];
                         }
+                        type = AmandsSenseHelper.Localized("5b5f6fd286f774093f2ecf0d", EStringCase.None);
                         break;
                     case ESenseItemType.StorageContainers:
                         color = AmandsSensePlugin.StorageContainersColor.Value;
@@ -1150,6 +1198,7 @@ namespace AmandsSense
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_gear_cases.png"];
                         }
+                        type = AmandsSenseHelper.Localized("5b5f6fa186f77409407a7eb7", EStringCase.None);
                         break;
                     case ESenseItemType.TacticalRigs:
                         color = AmandsSensePlugin.TacticalRigsColor.Value;
@@ -1157,6 +1206,7 @@ namespace AmandsSense
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_gear_rigs.png"];
                         }
+                        type = AmandsSenseHelper.Localized("5b5f6f8786f77447ed563642", EStringCase.None);
                         break;
                     case ESenseItemType.FunctionalMods:
                         color = AmandsSensePlugin.FunctionalModsColor.Value;
@@ -1164,6 +1214,7 @@ namespace AmandsSense
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_mods_functional.png"];
                         }
+                        type = AmandsSenseHelper.Localized("5b5f71b386f774093f2ecf11", EStringCase.None);
                         break;
                     case ESenseItemType.GearMods:
                         color = AmandsSensePlugin.GearModsColor.Value;
@@ -1171,6 +1222,7 @@ namespace AmandsSense
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_mods_gear.png"];
                         }
+                        type = AmandsSenseHelper.Localized("5b5f750686f774093e6cb503", EStringCase.None);
                         break;
                     case ESenseItemType.VitalParts:
                         color = AmandsSensePlugin.VitalPartsColor.Value;
@@ -1178,6 +1230,7 @@ namespace AmandsSense
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_mods_vital.png"];
                         }
+                        type = AmandsSenseHelper.Localized("5b5f75b986f77447ec5d7710", EStringCase.None);
                         break;
                     case ESenseItemType.MeleeWeapons:
                         color = AmandsSensePlugin.MeleeWeaponsColor.Value;
@@ -1185,6 +1238,7 @@ namespace AmandsSense
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_weapons_melee.png"];
                         }
+                        type = AmandsSenseHelper.Localized("5b5f7a0886f77409407a7f96", EStringCase.None);
                         break;
                     case ESenseItemType.Throwables:
                         color = AmandsSensePlugin.ThrowablesColor.Value;
@@ -1192,6 +1246,7 @@ namespace AmandsSense
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_weapons_throw.png"];
                         }
+                        type = AmandsSenseHelper.Localized("5b5f7a2386f774093f2ed3c4", EStringCase.None);
                         break;
                     case ESenseItemType.AmmoPacks:
                         color = AmandsSensePlugin.AmmoPacksColor.Value;
@@ -1199,6 +1254,7 @@ namespace AmandsSense
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_ammo_boxes.png"];
                         }
+                        type = AmandsSenseHelper.Localized("5b47574386f77428ca22b33c", EStringCase.None);
                         break;
                     case ESenseItemType.Rounds:
                         color = AmandsSensePlugin.RoundsColor.Value;
@@ -1206,6 +1262,7 @@ namespace AmandsSense
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_ammo_rounds.png"];
                         }
+                        type = AmandsSenseHelper.Localized("5b47574386f77428ca22b33b", EStringCase.None);
                         break;
                     case ESenseItemType.Drinks:
                         color = AmandsSensePlugin.DrinksColor.Value;
@@ -1213,6 +1270,7 @@ namespace AmandsSense
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_provisions_drinks.png"];
                         }
+                        type = AmandsSenseHelper.Localized("5b47574386f77428ca22b335", EStringCase.None);
                         break;
                     case ESenseItemType.Food:
                         color = AmandsSensePlugin.FoodColor.Value;
@@ -1220,6 +1278,7 @@ namespace AmandsSense
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_provisions_food.png"];
                         }
+                        type = AmandsSenseHelper.Localized("5b47574386f77428ca22b336", EStringCase.None);
                         break;
                     case ESenseItemType.Injectors:
                         color = AmandsSensePlugin.InjectorsColor.Value;
@@ -1227,6 +1286,7 @@ namespace AmandsSense
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_medical_injectors.png"];
                         }
+                        type = AmandsSenseHelper.Localized("5b47574386f77428ca22b33a", EStringCase.None);
                         break;
                     case ESenseItemType.InjuryTreatment:
                         color = AmandsSensePlugin.InjuryTreatmentColor.Value;
@@ -1234,6 +1294,7 @@ namespace AmandsSense
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_medical_injury.png"];
                         }
+                        type = AmandsSenseHelper.Localized("5b47574386f77428ca22b339", EStringCase.None);
                         break;
                     case ESenseItemType.Medkits:
                         color = AmandsSensePlugin.MedkitsColor.Value;
@@ -1241,6 +1302,7 @@ namespace AmandsSense
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_medical_medkits.png"];
                         }
+                        type = AmandsSenseHelper.Localized("5b47574386f77428ca22b338", EStringCase.None);
                         break;
                     case ESenseItemType.Pills:
                         color = AmandsSensePlugin.PillsColor.Value;
@@ -1248,6 +1310,7 @@ namespace AmandsSense
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_medical_pills.png"];
                         }
+                        type = AmandsSenseHelper.Localized("5b47574386f77428ca22b337", EStringCase.None);
                         break;
                     case ESenseItemType.ElectronicKeys:
                         color = AmandsSensePlugin.ElectronicKeysColor.Value;
@@ -1255,6 +1318,7 @@ namespace AmandsSense
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_keys_electronic.png"];
                         }
+                        type = AmandsSenseHelper.Localized("5c518ed586f774119a772aee", EStringCase.None);
                         break;
                     case ESenseItemType.MechanicalKeys:
                         color = AmandsSensePlugin.MechanicalKeysColor.Value;
@@ -1262,6 +1326,7 @@ namespace AmandsSense
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_keys_mechanic.png"];
                         }
+                        type = AmandsSenseHelper.Localized("5c518ec986f7743b68682ce2", EStringCase.None);
                         break;
                     case ESenseItemType.InfoItems:
                         color = AmandsSensePlugin.InfoItemsColor.Value;
@@ -1269,6 +1334,7 @@ namespace AmandsSense
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_info.png"];
                         }
+                        type = AmandsSenseHelper.Localized("5b47574386f77428ca22b341", EStringCase.None);
                         break;
                     case ESenseItemType.SpecialEquipment:
                         color = AmandsSensePlugin.SpecialEquipmentColor.Value;
@@ -1276,6 +1342,7 @@ namespace AmandsSense
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_spec.png"];
                         }
+                        type = AmandsSenseHelper.Localized("5b47574386f77428ca22b345", EStringCase.None);
                         break;
                     case ESenseItemType.Maps:
                         color = AmandsSensePlugin.MapsColor.Value;
@@ -1283,6 +1350,7 @@ namespace AmandsSense
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_maps.png"];
                         }
+                        type = AmandsSenseHelper.Localized("5b47574386f77428ca22b343", EStringCase.None);
                         break;
                     case ESenseItemType.Money:
                         color = AmandsSensePlugin.MoneyColor.Value;
@@ -1290,6 +1358,7 @@ namespace AmandsSense
                         {
                             sprite = AmandsSenseClass.LoadedSprites["icon_money.png"];
                         }
+                        type = AmandsSenseHelper.Localized("5b5f78b786f77447ed5636af", EStringCase.None);
                         break;
                 }
 
@@ -1344,7 +1413,7 @@ namespace AmandsSense
                 if (typeText != null)
                 {
                     typeText.fontSize = 0.5f;
-                    typeText.text = eSenseItemType.ToString();
+                    typeText.text = type;
                     typeText.color = new Color(color.r, color.g, color.b, 0f);
                 }
 
@@ -1413,12 +1482,22 @@ namespace AmandsSense
                 }
 
                 // SenseItem Sound
-                if (!AmandsSensePlugin.SenseAlwaysOn.Value)
+                if (AmandsSensePlugin.SenseRareSound.Value && AmandsSenseClass.LoadedAudioClips.ContainsKey("SenseRare.wav"))
                 {
-                    AudioClip itemClip = Singleton<GUISounds>.Instance.GetItemClip(observedLootItem.Item.ItemSound, EInventorySoundType.pickup);
-                    if (itemClip != null)
+                    if (!AmandsSensePlugin.SenseAlwaysOn.Value)
                     {
-                        Singleton<BetterAudio>.Instance.PlayAtPoint(transform.position, itemClip, AmandsSensePlugin.AudioDistance.Value, BetterAudio.AudioSourceGroupType.Environment, AmandsSensePlugin.AudioRolloff.Value, AmandsSensePlugin.AudioVolume.Value, EOcclusionTest.Fast);
+                        Singleton<BetterAudio>.Instance.PlayAtPoint(transform.position, AmandsSenseClass.LoadedAudioClips["SenseRare.wav"], AmandsSensePlugin.AudioDistance.Value, BetterAudio.AudioSourceGroupType.Environment, AmandsSensePlugin.AudioRolloff.Value, AmandsSensePlugin.AudioVolume.Value, EOcclusionTest.Fast);
+                    }
+                }
+                else
+                {
+                    if (!AmandsSensePlugin.SenseAlwaysOn.Value)
+                    {
+                        AudioClip itemClip = Singleton<GUISounds>.Instance.GetItemClip(observedLootItem.Item.ItemSound, EInventorySoundType.pickup);
+                        if (itemClip != null)
+                        {
+                            Singleton<BetterAudio>.Instance.PlayAtPoint(transform.position, itemClip, AmandsSensePlugin.AudioDistance.Value, BetterAudio.AudioSourceGroupType.Environment, AmandsSensePlugin.AudioRolloff.Value, AmandsSensePlugin.AudioVolume.Value, EOcclusionTest.Fast);
+                        }
                     }
                 }
             }
@@ -1584,7 +1663,7 @@ namespace AmandsSense
                 if (typeText != null)
                 {
                     typeText.fontSize = 0.5f;
-                    typeText.text = "Container";
+                    typeText.text = AmandsSenseHelper.Localized("container", EStringCase.None);
                     typeText.color = new Color(color.r, color.g, color.b, 0f);
                 }
 
@@ -1601,17 +1680,34 @@ namespace AmandsSense
                 if (descriptionText != null)
                 {
                     descriptionText.fontSize = 0.75f;
-                    descriptionText.text = itemCount + (itemCount > 1 ? " Items" : " Item");
+                    if (AmandsSensePlugin.ContainerLootcount.Value)
+                    {
+                        descriptionText.text = AmandsSenseHelper.Localized("loot", EStringCase.None) + " " + itemCount;
+                    }
+                    else
+                    {
+                        descriptionText.text = "";
+                    }
                     descriptionText.color = new Color(textColor.r, textColor.g, textColor.b, 0f);
                 }
 
                 // SenseContainer Sound
-                if (!AmandsSensePlugin.SenseAlwaysOn.Value && !Drawer && lootableContainer.OpenSound.Length > 0)
+                if (AmandsSensePlugin.SenseRareSound.Value && AmandsSenseClass.LoadedAudioClips.ContainsKey("SenseRare.wav"))
                 {
-                    AudioClip OpenSound = lootableContainer.OpenSound[0];
-                    if (OpenSound != null)
+                    if (!AmandsSensePlugin.SenseAlwaysOn.Value)
                     {
-                        Singleton<BetterAudio>.Instance.PlayAtPoint(transform.position, OpenSound, AmandsSensePlugin.AudioDistance.Value, BetterAudio.AudioSourceGroupType.Environment, AmandsSensePlugin.AudioRolloff.Value, AmandsSensePlugin.AudioVolume.Value, EOcclusionTest.Fast);
+                        Singleton<BetterAudio>.Instance.PlayAtPoint(transform.position, AmandsSenseClass.LoadedAudioClips["SenseRare.wav"], AmandsSensePlugin.AudioDistance.Value, BetterAudio.AudioSourceGroupType.Environment, AmandsSensePlugin.AudioRolloff.Value, AmandsSensePlugin.ContainerAudioVolume.Value, EOcclusionTest.Fast);
+                    }
+                }
+                else
+                {
+                    if (!AmandsSensePlugin.SenseAlwaysOn.Value && !Drawer && lootableContainer.OpenSound.Length > 0)
+                    {
+                        AudioClip OpenSound = lootableContainer.OpenSound[0];
+                        if (OpenSound != null)
+                        {
+                            Singleton<BetterAudio>.Instance.PlayAtPoint(transform.position, OpenSound, AmandsSensePlugin.AudioDistance.Value, BetterAudio.AudioSourceGroupType.Environment, AmandsSensePlugin.AudioRolloff.Value, AmandsSensePlugin.ContainerAudioVolume.Value, EOcclusionTest.Fast);
+                        }
                     }
                 }
             }
@@ -1749,7 +1845,14 @@ namespace AmandsSense
                 if (descriptionText != null)
                 {
                     descriptionText.fontSize = 0.75f;
-                    descriptionText.text = itemCount + (itemCount > 1 ? " Items" : " Item");
+                    if (AmandsSensePlugin.ContainerLootcount.Value)
+                    {
+                        descriptionText.text = AmandsSenseHelper.Localized("loot", EStringCase.None) + " " + itemCount;
+                    }
+                    else
+                    {
+                        descriptionText.text = "";
+                    }
                     descriptionText.color = new Color(textColor.r, textColor.g, textColor.b, descriptionText.color.a);
                 }
             }
@@ -1926,14 +2029,14 @@ namespace AmandsSense
                         color = AmandsSensePlugin.NonFleaItemsColor.Value;
                         if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_barter.png"))
                         {
-                            sprite = AmandsSenseClass.LoadedSprites["icon_barter.png"];
+                            //sprite = AmandsSenseClass.LoadedSprites["icon_barter.png"];
                         }
                         break;
                     case ESenseItemColor.WishList:
                         color = AmandsSensePlugin.WishListItemsColor.Value;
                         if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_fav_checked.png"))
                         {
-                            sprite = AmandsSenseClass.LoadedSprites["icon_fav_checked.png"];
+                            //sprite = AmandsSenseClass.LoadedSprites["icon_fav_checked.png"];
                         }
                         break;
                     case ESenseItemColor.Rare:
@@ -2098,14 +2201,14 @@ namespace AmandsSense
                         color = AmandsSensePlugin.NonFleaItemsColor.Value;
                         if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_barter.png"))
                         {
-                            sprite = AmandsSenseClass.LoadedSprites["icon_barter.png"];
+                            //sprite = AmandsSenseClass.LoadedSprites["icon_barter.png"];
                         }
                         break;
                     case ESenseItemColor.WishList:
                         color = AmandsSensePlugin.WishListItemsColor.Value;
                         if (AmandsSenseClass.LoadedSprites.ContainsKey("icon_fav_checked.png"))
                         {
-                            sprite = AmandsSenseClass.LoadedSprites["icon_fav_checked.png"];
+                            //sprite = AmandsSenseClass.LoadedSprites["icon_fav_checked.png"];
                         }
                         break;
                     case ESenseItemColor.Rare:
@@ -2328,7 +2431,7 @@ namespace AmandsSense
                 if (typeText != null)
                 {
                     typeText.fontSize = 0.5f;
-                    typeText.text = "Exfil";
+                    typeText.text = AmandsSenseHelper.Localized("exfil", EStringCase.None);
                     typeText.color = new Color(color.r, color.g, color.b, 0f);
                 }
 
@@ -2404,7 +2507,7 @@ namespace AmandsSense
                 if (typeText != null)
                 {
                     typeText.fontSize = 0.5f;
-                    typeText.text = "Exfil";
+                    typeText.text = AmandsSenseHelper.Localized("exfil", EStringCase.None);
                     typeText.color = new Color(color.r, color.g, color.b, color.a);
                 }
 
