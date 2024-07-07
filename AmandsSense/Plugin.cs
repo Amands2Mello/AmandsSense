@@ -1,5 +1,3 @@
-
-using Aki.Reflection.Patching;
 using BepInEx;
 using BepInEx.Configuration;
 using System.Reflection;
@@ -10,6 +8,7 @@ using System.Threading.Tasks;
 using EFT.Interactive;
 using EFT.HealthSystem;
 using EFT.UI;
+using SPT.Reflection.Patching;
 
 namespace AmandsSense
 {

@@ -30,210 +30,214 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
+
+  <PropertyGroup>
+    <TarkovDir Condition=" '$(TarkovDir)' == '' ">C:\Games\spt_3.9\</TarkovDir>
+    <TarkovPluginsSPTDir>$(TarkovDir)BepInEx\plugins\spt\</TarkovPluginsSPTDir>
+    <TarkovManagedDir>$(TarkovDir)EscapeFromTarkov_Data\Managed\</TarkovManagedDir>
+    <TarkovBepInExCoreDir>$(TarkovDir)BepInEx\core\</TarkovBepInExCoreDir>
+  </PropertyGroup>
+  
   <ItemGroup>
     <Reference Include="0Harmony, Version=2.9.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\0Harmony.dll</HintPath>
+      <HintPath>$(TarkovBepInExCoreDir)0Harmony.dll</HintPath>
     </Reference>
     <Reference Include="Accessibility" />
-    <Reference Include="Aki.Build, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+    <Reference Include="SPT.Common, Version=3.9.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\Aki.Build.dll</HintPath>
+      <HintPath>$(TarkovPluginsSPTDir)spt-common.dll</HintPath>
     </Reference>
-    <Reference Include="Aki.Common, Version=3.7.0.0, Culture=neutral, processorArchitecture=MSIL">
+    <Reference Include="SPT.Reflection, Version=3.9.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\Aki.Common.dll</HintPath>
-    </Reference>
-    <Reference Include="Aki.Reflection, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\Aki.Reflection.dll</HintPath>
+      <HintPath>$(TarkovPluginsSPTDir)spt-reflection.dll</HintPath>
     </Reference>
     <Reference Include="AmplifyMotion, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\AmplifyMotion.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)AmplifyMotion.dll</HintPath>
     </Reference>
     <Reference Include="AnimationSystem.Recording, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\AnimationSystem.Recording.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)AnimationSystem.Recording.dll</HintPath>
     </Reference>
     <Reference Include="AnimationSystem.Types, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\AnimationSystem.Types.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)AnimationSystem.Types.dll</HintPath>
     </Reference>
     <Reference Include="Assembly-CSharp, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\Assembly-CSharp.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)Assembly-CSharp.dll</HintPath>
     </Reference>
     <Reference Include="Assembly-CSharp-firstpass, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\Assembly-CSharp-firstpass.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)Assembly-CSharp-firstpass.dll</HintPath>
     </Reference>
     <Reference Include="Autodesk.Fbx, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\Autodesk.Fbx.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)Autodesk.Fbx.dll</HintPath>
     </Reference>
     <Reference Include="BepInEx, Version=5.4.21.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\BepInEx.dll</HintPath>
+      <HintPath>$(TarkovBepInExCoreDir)BepInEx.dll</HintPath>
     </Reference>
     <Reference Include="bsg.componentace.compression.libs.zlib, Version=1.0.3.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\bsg.componentace.compression.libs.zlib.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)bsg.componentace.compression.libs.zlib.dll</HintPath>
     </Reference>
     <Reference Include="bsg.console.core, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\bsg.console.core.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)bsg.console.core.dll</HintPath>
     </Reference>
     <Reference Include="bsg.microsoft.extensions.objectpool, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\bsg.microsoft.extensions.objectpool.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)bsg.microsoft.extensions.objectpool.dll</HintPath>
     </Reference>
     <Reference Include="bsg.system.buffers, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\bsg.system.buffers.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)bsg.system.buffers.dll</HintPath>
     </Reference>
     <Reference Include="BSG.Unity.Wires">
-      <HintPath>..\References\BSG.Unity.Wires.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)BSG.Unity.Wires.dll</HintPath>
     </Reference>
     <Reference Include="Cinemachine, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\Cinemachine.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)Cinemachine.dll</HintPath>
     </Reference>
     <Reference Include="Coffee.SoftMaskForUGUI, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\Coffee.SoftMaskForUGUI.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)Coffee.SoftMaskForUGUI.dll</HintPath>
     </Reference>
     <Reference Include="com.nvidia.reflex.Runtime, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\com.nvidia.reflex.Runtime.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)com.nvidia.reflex.Runtime.dll</HintPath>
     </Reference>
     <Reference Include="com.unity.multiplayer-hlapi.Runtime, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\com.unity.multiplayer-hlapi.Runtime.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)com.unity.multiplayer-hlapi.Runtime.dll</HintPath>
     </Reference>
     <Reference Include="Comfort, Version=1.0.0.4, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\Comfort.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)Comfort.dll</HintPath>
     </Reference>
     <Reference Include="Comfort.Unity, Version=1.0.0.4, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\Comfort.Unity.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)Comfort.Unity.dll</HintPath>
     </Reference>
     <Reference Include="CommonExtensions, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\CommonExtensions.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)CommonExtensions.dll</HintPath>
     </Reference>
     <Reference Include="DissonanceVoip, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\DissonanceVoip.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)DissonanceVoip.dll</HintPath>
     </Reference>
     <Reference Include="DOTween, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\DOTween.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)DOTween.dll</HintPath>
     </Reference>
     <Reference Include="DOTween.Modules, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\DOTween.Modules.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)DOTween.Modules.dll</HintPath>
     </Reference>
     <Reference Include="FbxBuildTestAssets, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\FbxBuildTestAssets.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)FbxBuildTestAssets.dll</HintPath>
     </Reference>
     <Reference Include="FilesChecker, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\FilesChecker.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)FilesChecker.dll</HintPath>
     </Reference>
     <Reference Include="ILInjectedProfiler, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\ILInjectedProfiler.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)ILInjectedProfiler.dll</HintPath>
     </Reference>
     <Reference Include="ItemComponent.Types, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\ItemComponent.Types.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)ItemComponent.Types.dll</HintPath>
     </Reference>
     <Reference Include="ItemTemplate.Types, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\ItemTemplate.Types.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)ItemTemplate.Types.dll</HintPath>
     </Reference>
     <Reference Include="JBooth.MicroSplat.Core, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\JBooth.MicroSplat.Core.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)JBooth.MicroSplat.Core.dll</HintPath>
     </Reference>
     <Reference Include="kcp, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\kcp.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)kcp.dll</HintPath>
     </Reference>
     <Reference Include="LibraryLoaderUtility, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\LibraryLoaderUtility.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)LibraryLoaderUtility.dll</HintPath>
     </Reference>
     <Reference Include="Meta.XR.Audio, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\Meta.XR.Audio.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)Meta.XR.Audio.dll</HintPath>
     </Reference>
     <Reference Include="Mono.Data.Sqlite, Version=4.0.0.0, Culture=neutral, PublicKeyToken=0738eb9f132ed756, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\Mono.Data.Sqlite.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)Mono.Data.Sqlite.dll</HintPath>
     </Reference>
     <Reference Include="Mono.Posix, Version=4.0.0.0, Culture=neutral, PublicKeyToken=0738eb9f132ed756, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\Mono.Posix.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)Mono.Posix.dll</HintPath>
     </Reference>
     <Reference Include="Mono.Security, Version=4.0.0.0, Culture=neutral, PublicKeyToken=0738eb9f132ed756, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\Mono.Security.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)Mono.Security.dll</HintPath>
     </Reference>
     <Reference Include="Mono.WebBrowser, Version=4.0.0.0, Culture=neutral, PublicKeyToken=0738eb9f132ed756, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\Mono.WebBrowser.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)Mono.WebBrowser.dll</HintPath>
     </Reference>
     <Reference Include="Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\Newtonsoft.Json.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)Newtonsoft.Json.dll</HintPath>
     </Reference>
     <Reference Include="Newtonsoft.Json.UnityConverters, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\Newtonsoft.Json.UnityConverters.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)Newtonsoft.Json.UnityConverters.dll</HintPath>
     </Reference>
     <Reference Include="NLog, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\NLog.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)NLog.dll</HintPath>
     </Reference>
     <Reference Include="Novell.Directory.Ldap, Version=4.0.0.0, Culture=neutral, PublicKeyToken=0738eb9f132ed756, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\Novell.Directory.Ldap.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)Novell.Directory.Ldap.dll</HintPath>
     </Reference>
     <Reference Include="Oculus.AudioManager, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\Oculus.AudioManager.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)Oculus.AudioManager.dll</HintPath>
     </Reference>
     <Reference Include="Oculus.Spatializer, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\Oculus.Spatializer.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)Oculus.Spatializer.dll</HintPath>
     </Reference>
     <Reference Include="Sirenix.OdinInspector.Attributes, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\Sirenix.OdinInspector.Attributes.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)Sirenix.OdinInspector.Attributes.dll</HintPath>
     </Reference>
     <Reference Include="Sirenix.OdinInspector.CompatibilityLayer, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\Sirenix.OdinInspector.CompatibilityLayer.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)Sirenix.OdinInspector.CompatibilityLayer.dll</HintPath>
     </Reference>
     <Reference Include="Sirenix.Serialization, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\Sirenix.Serialization.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)Sirenix.Serialization.dll</HintPath>
     </Reference>
     <Reference Include="Sirenix.Serialization.Config, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\Sirenix.Serialization.Config.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)Sirenix.Serialization.Config.dll</HintPath>
     </Reference>
     <Reference Include="Sirenix.Utilities, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\Sirenix.Utilities.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)Sirenix.Utilities.dll</HintPath>
     </Reference>
     <Reference Include="SteamAudio, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\SteamAudio.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)SteamAudio.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
@@ -244,343 +248,343 @@
     <Reference Include="System.Xml" />
     <Reference Include="uLipSync.Runtime, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\uLipSync.Runtime.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)uLipSync.Runtime.dll</HintPath>
     </Reference>
     <Reference Include="Unity.Burst, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\Unity.Burst.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)Unity.Burst.dll</HintPath>
     </Reference>
     <Reference Include="Unity.Burst.Cecil, Version=0.10.0.0, Culture=neutral, PublicKeyToken=fc15b93552389f74, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\Unity.Burst.Cecil.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)Unity.Burst.Cecil.dll</HintPath>
     </Reference>
     <Reference Include="Unity.Burst.Cecil.Mdb, Version=0.10.0.0, Culture=neutral, PublicKeyToken=fc15b93552389f74, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\Unity.Burst.Cecil.Mdb.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)Unity.Burst.Cecil.Mdb.dll</HintPath>
     </Reference>
     <Reference Include="Unity.Burst.Cecil.Pdb, Version=0.10.0.0, Culture=neutral, PublicKeyToken=fc15b93552389f74, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\Unity.Burst.Cecil.Pdb.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)Unity.Burst.Cecil.Pdb.dll</HintPath>
     </Reference>
     <Reference Include="Unity.Burst.Cecil.Rocks, Version=0.10.0.0, Culture=neutral, PublicKeyToken=fc15b93552389f74, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\Unity.Burst.Cecil.Rocks.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)Unity.Burst.Cecil.Rocks.dll</HintPath>
     </Reference>
     <Reference Include="Unity.Burst.Unsafe, Version=4.0.5.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\Unity.Burst.Unsafe.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)Unity.Burst.Unsafe.dll</HintPath>
     </Reference>
     <Reference Include="Unity.Formats.Fbx.Runtime, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\Unity.Formats.Fbx.Runtime.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)Unity.Formats.Fbx.Runtime.dll</HintPath>
     </Reference>
     <Reference Include="Unity.Mathematics, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\Unity.Mathematics.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)Unity.Mathematics.dll</HintPath>
     </Reference>
     <Reference Include="Unity.MemoryProfiler, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\Unity.MemoryProfiler.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)Unity.MemoryProfiler.dll</HintPath>
     </Reference>
     <Reference Include="Unity.PlayableGraphVisualizer, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\Unity.PlayableGraphVisualizer.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)Unity.PlayableGraphVisualizer.dll</HintPath>
     </Reference>
     <Reference Include="Unity.Postprocessing.Runtime, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\Unity.Postprocessing.Runtime.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)Unity.Postprocessing.Runtime.dll</HintPath>
     </Reference>
     <Reference Include="Unity.ProBuilder, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\Unity.ProBuilder.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)Unity.ProBuilder.dll</HintPath>
     </Reference>
     <Reference Include="Unity.ProBuilder.Csg, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\Unity.ProBuilder.Csg.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)Unity.ProBuilder.Csg.dll</HintPath>
     </Reference>
     <Reference Include="Unity.ProBuilder.KdTree, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\Unity.ProBuilder.KdTree.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)Unity.ProBuilder.KdTree.dll</HintPath>
     </Reference>
     <Reference Include="Unity.ProBuilder.Poly2Tri, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\Unity.ProBuilder.Poly2Tri.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)Unity.ProBuilder.Poly2Tri.dll</HintPath>
     </Reference>
     <Reference Include="Unity.ProBuilder.Stl, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\Unity.ProBuilder.Stl.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)Unity.ProBuilder.Stl.dll</HintPath>
     </Reference>
     <Reference Include="Unity.Recorder, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\Unity.Recorder.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)Unity.Recorder.dll</HintPath>
     </Reference>
     <Reference Include="Unity.Recorder.Base, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\Unity.Recorder.Base.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)Unity.Recorder.Base.dll</HintPath>
     </Reference>
     <Reference Include="Unity.ScriptableBuildPipeline, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\Unity.ScriptableBuildPipeline.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)Unity.ScriptableBuildPipeline.dll</HintPath>
     </Reference>
     <Reference Include="Unity.TextMeshPro, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\Unity.TextMeshPro.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)Unity.TextMeshPro.dll</HintPath>
     </Reference>
     <Reference Include="Unity.Timeline, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\Unity.Timeline.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)Unity.Timeline.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\UnityEngine.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)UnityEngine.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.AccessibilityModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\UnityEngine.AccessibilityModule.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)UnityEngine.AccessibilityModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.AIModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\UnityEngine.AIModule.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)UnityEngine.AIModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.AndroidJNIModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\UnityEngine.AndroidJNIModule.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)UnityEngine.AndroidJNIModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.AnimationModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\UnityEngine.AnimationModule.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)UnityEngine.AnimationModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.ARModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\UnityEngine.ARModule.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)UnityEngine.ARModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.AssetBundleModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\UnityEngine.AssetBundleModule.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)UnityEngine.AssetBundleModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.AudioModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\UnityEngine.AudioModule.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)UnityEngine.AudioModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.ClothModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\UnityEngine.ClothModule.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)UnityEngine.ClothModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.ClusterInputModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\UnityEngine.ClusterInputModule.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)UnityEngine.ClusterInputModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.ClusterRendererModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\UnityEngine.ClusterRendererModule.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)UnityEngine.ClusterRendererModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.CoreModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\UnityEngine.CoreModule.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)UnityEngine.CoreModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.CrashReportingModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\UnityEngine.CrashReportingModule.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)UnityEngine.CrashReportingModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.DirectorModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\UnityEngine.DirectorModule.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)UnityEngine.DirectorModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.DSPGraphModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\UnityEngine.DSPGraphModule.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)UnityEngine.DSPGraphModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.GameCenterModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\UnityEngine.GameCenterModule.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)UnityEngine.GameCenterModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.GridModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\UnityEngine.GridModule.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)UnityEngine.GridModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.HotReloadModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\UnityEngine.HotReloadModule.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)UnityEngine.HotReloadModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.ImageConversionModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\UnityEngine.ImageConversionModule.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)UnityEngine.ImageConversionModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.IMGUIModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\UnityEngine.IMGUIModule.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)UnityEngine.IMGUIModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.InputLegacyModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\UnityEngine.InputLegacyModule.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)UnityEngine.InputLegacyModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.InputModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\UnityEngine.InputModule.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)UnityEngine.InputModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.JSONSerializeModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\UnityEngine.JSONSerializeModule.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)UnityEngine.JSONSerializeModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.LocalizationModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\UnityEngine.LocalizationModule.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)UnityEngine.LocalizationModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.ParticleSystemModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\UnityEngine.ParticleSystemModule.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)UnityEngine.ParticleSystemModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.PerformanceReportingModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\UnityEngine.PerformanceReportingModule.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)UnityEngine.PerformanceReportingModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.Physics2DModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\UnityEngine.Physics2DModule.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)UnityEngine.Physics2DModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.PhysicsModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\UnityEngine.PhysicsModule.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)UnityEngine.PhysicsModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.ProfilerModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\UnityEngine.ProfilerModule.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)UnityEngine.ProfilerModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.ScreenCaptureModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\UnityEngine.ScreenCaptureModule.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)UnityEngine.ScreenCaptureModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.SharedInternalsModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\UnityEngine.SharedInternalsModule.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)UnityEngine.SharedInternalsModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.SpriteMaskModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\UnityEngine.SpriteMaskModule.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)UnityEngine.SpriteMaskModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.SpriteShapeModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\UnityEngine.SpriteShapeModule.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)UnityEngine.SpriteShapeModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.StreamingModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\UnityEngine.StreamingModule.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)UnityEngine.StreamingModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.SubstanceModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\UnityEngine.SubstanceModule.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)UnityEngine.SubstanceModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.SubsystemsModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\UnityEngine.SubsystemsModule.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)UnityEngine.SubsystemsModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.TerrainModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\UnityEngine.TerrainModule.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)UnityEngine.TerrainModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.TerrainPhysicsModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\UnityEngine.TerrainPhysicsModule.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)UnityEngine.TerrainPhysicsModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.TextCoreModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\UnityEngine.TextCoreModule.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)UnityEngine.TextCoreModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.TextRenderingModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\UnityEngine.TextRenderingModule.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)UnityEngine.TextRenderingModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.TilemapModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\UnityEngine.TilemapModule.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)UnityEngine.TilemapModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.TLSModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\UnityEngine.TLSModule.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)UnityEngine.TLSModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.UI, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\UnityEngine.UI.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)UnityEngine.UI.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.UIElementsModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\UnityEngine.UIElementsModule.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)UnityEngine.UIElementsModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.UIModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\UnityEngine.UIModule.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)UnityEngine.UIModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.UmbraModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\UnityEngine.UmbraModule.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)UnityEngine.UmbraModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.UNETModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\UnityEngine.UNETModule.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)UnityEngine.UNETModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.UnityAnalyticsModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\UnityEngine.UnityAnalyticsModule.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)UnityEngine.UnityAnalyticsModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.UnityConnectModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\UnityEngine.UnityConnectModule.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)UnityEngine.UnityConnectModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.UnityTestProtocolModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\UnityEngine.UnityTestProtocolModule.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)UnityEngine.UnityTestProtocolModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.UnityWebRequestAssetBundleModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\UnityEngine.UnityWebRequestAssetBundleModule.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)UnityEngine.UnityWebRequestAssetBundleModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.UnityWebRequestAudioModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\UnityEngine.UnityWebRequestAudioModule.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)UnityEngine.UnityWebRequestAudioModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.UnityWebRequestModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\UnityEngine.UnityWebRequestModule.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)UnityEngine.UnityWebRequestModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.UnityWebRequestTextureModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\UnityEngine.UnityWebRequestTextureModule.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)UnityEngine.UnityWebRequestTextureModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.UnityWebRequestWWWModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\UnityEngine.UnityWebRequestWWWModule.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)UnityEngine.UnityWebRequestWWWModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.VehiclesModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\UnityEngine.VehiclesModule.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)UnityEngine.VehiclesModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.VFXModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\UnityEngine.VFXModule.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)UnityEngine.VFXModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.VideoModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\UnityEngine.VideoModule.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)UnityEngine.VideoModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.VRModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\UnityEngine.VRModule.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)UnityEngine.VRModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.WindModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\UnityEngine.WindModule.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)UnityEngine.WindModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.XRModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\UnityEngine.XRModule.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)UnityEngine.XRModule.dll</HintPath>
     </Reference>
     <Reference Include="websocket-sharp, Version=1.0.2.35012, Culture=neutral, PublicKeyToken=5660b08a1845a91e, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\websocket-sharp.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)websocket-sharp.dll</HintPath>
     </Reference>
     <Reference Include="where-allocations, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\where-allocations.dll</HintPath>
+      <HintPath>$(TarkovManagedDir)where-allocations.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>
@@ -588,7 +592,6 @@
     <Compile Include="AmandsSenseHelper.cs" />
     <Compile Include="ConfigurationManagerAttributes.cs" />
     <Compile Include="Plugin.cs" />
-    <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
