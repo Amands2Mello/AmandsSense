@@ -1,5 +1,5 @@
 
-using Aki.Reflection.Patching;
+using SPT.Reflection.Patching;
 using BepInEx;
 using BepInEx.Configuration;
 using System.Reflection;
@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using EFT.Interactive;
 using EFT.HealthSystem;
 using EFT.UI;
+using UnityEngine.SceneManagement;
 
 namespace AmandsSense
 {
@@ -34,6 +35,7 @@ namespace AmandsSense
         public static ConfigEntry<float> MaxHeight { get; set; }
         public static ConfigEntry<float> MinHeight { get; set; }
 
+        public static ConfigEntry<bool> ContainerLootcount { get; set; }
         public static ConfigEntry<bool> EnableFlea { get; set; }
         public static ConfigEntry<bool> FleaIncludeAmmo { get; set; }
 
@@ -62,6 +64,9 @@ namespace AmandsSense
         public static ConfigEntry<float> AudioDistance { get; set; }
         public static ConfigEntry<int> AudioRolloff { get; set; }
         public static ConfigEntry<float> AudioVolume { get; set; }
+        public static ConfigEntry<float> ContainerAudioVolume { get; set; }
+        public static ConfigEntry<float> ActivateSenseVolume { get; set; }
+        public static ConfigEntry<bool> SenseRareSound { get; set; }
 
         public static ConfigEntry<bool> useDof { get; set; }
 
@@ -124,15 +129,38 @@ namespace AmandsSense
         public static ConfigEntry<Color> MapsColor { get; set; }
         public static ConfigEntry<Color> MoneyColor { get; set; }
 
+        public static ConfigEntry<string> Version { get; set; }
+        private static bool RequestDefaultValues = false;
+
         private void Awake()
         {
             Debug.LogError("Sense Awake()");
             Hook = new GameObject("AmandsSense");
             AmandsSenseClassComponent = Hook.AddComponent<AmandsSenseClass>();
+            AmandsSenseClass.SenseAudioSource = Hook.AddComponent<AudioSource>();
             DontDestroyOnLoad(Hook);
         }
         private void Start()
         {
+            Version = Config.Bind("Versioning", "Version", "0.0.0", new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 1, ReadOnly = true, IsAdvanced = true }));
+
+            if (Version.Value == "0.0.0")
+            {
+                // Using New Config File
+                Version.Value = Info.Metadata.Version.ToString();
+                RequestDefaultValues = true;
+            }
+            else if (Version.Value != Info.Metadata.Version.ToString())
+            {
+                // Using Old Config File
+                Version.Value = Info.Metadata.Version.ToString();
+                RequestDefaultValues = true;
+            }
+            else
+            {
+                // Valid Config File
+            }
+
             EnableSense = Config.Bind("AmandsSense", "EnableSense", EEnableSense.OnText, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 380 }));
             EnableExfilSense = Config.Bind("AmandsSense", "EnableExfilSense", true, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 370 }));
             SenseAlwaysOn = Config.Bind("AmandsSense", "AlwaysOn", false, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 360 }));
@@ -149,6 +177,7 @@ namespace AmandsSense
             MaxHeight = Config.Bind("AmandsSense", "MaxHeight", 3f, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 290, IsAdvanced = true }));
             MinHeight = Config.Bind("AmandsSense", "MinHeight", -1f, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 280, IsAdvanced = true }));
 
+            ContainerLootcount = Config.Bind("AmandsSense", "ContainerLootcount", true, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 272, IsAdvanced = true }));
             EnableFlea = Config.Bind("AmandsSense", "Enable Flea", true, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 270 }));
             FleaIncludeAmmo = Config.Bind("AmandsSense", "Flea Include Ammo", false, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 260 }));
 
@@ -176,7 +205,10 @@ namespace AmandsSense
 
             AudioDistance = Config.Bind("AmandsSense", "AudioDistance", 99f, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 130, IsAdvanced = true }));
             AudioRolloff = Config.Bind("AmandsSense", "AudioRolloff", 100, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 120, IsAdvanced = true }));
-            AudioVolume = Config.Bind("AmandsSense", "AudioVolume", 0.5f, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 110 }));
+            AudioVolume = Config.Bind("AmandsSense", "AudioVolume", 0.5f, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 112 }));
+            ContainerAudioVolume = Config.Bind("AmandsSense", "ContainerAudioVolume", 0.5f, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 110 }));
+            ActivateSenseVolume = Config.Bind("AmandsSense", "ActivateSenseVolume", 0.5f, new ConfigDescription("requires a custom sound .wav file named Sense.wav", null, new ConfigurationManagerAttributes { Order = 108 }));
+            SenseRareSound = Config.Bind("AmandsSense", "SenseRareSound", false, new ConfigDescription("requires a custom sound .wav file named SenseRare.wav", null, new ConfigurationManagerAttributes { Order = 106 }));
 
             useDof = Config.Bind("AmandsSense Effects", "useDof", true, new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 100 }));
 
@@ -249,12 +281,23 @@ namespace AmandsSense
             MapsColor = Config.Bind("Colors", "MapsColor", new Color(0.84f, 0.88f, 0.95f, 0.8f), new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 20 }));
             MoneyColor = Config.Bind("Colors", "MoneyColor", new Color(0.84f, 0.88f, 0.95f, 0.8f), new ConfigDescription("", null, new ConfigurationManagerAttributes { Order = 10 }));
 
+            if (RequestDefaultValues) DefaultValues();
+
             new AmandsPlayerPatch().Enable();
             new AmandsKillPatch().Enable();
             new AmandsSenseExfiltrationPatch().Enable();
             new AmandsSensePrismEffectsPatch().Enable();
 
             AmandsSenseHelper.Init();
+        }
+        private void DefaultValues()
+        {
+            Size.Value = (float)Size.DefaultValue;
+            IconSize.Value = (float)IconSize.DefaultValue;
+            SizeClamp.Value = (float)SizeClamp.DefaultValue;
+            VerticalOffset.Value = (float)VerticalOffset.DefaultValue;
+            TextOffset.Value = (float)TextOffset.DefaultValue;
+            ExfilVerticalOffset.Value = (float)ExfilVerticalOffset.DefaultValue;
         }
     }
     public class AmandsPlayerPatch : ModulePatch
@@ -271,6 +314,8 @@ namespace AmandsSense
                 AmandsSenseClass.Player = __instance;
                 AmandsSenseClass.inventoryControllerClass = Traverse.Create(__instance).Field("_inventoryController").GetValue<InventoryControllerClass>();
                 AmandsSenseClass.Clear();
+                AmandsSenseClass.scene = SceneManager.GetActiveScene().name;
+                AmandsSenseClass.ReloadFiles(true);
             }
         }
     }
