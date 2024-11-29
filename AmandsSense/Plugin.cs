@@ -11,6 +11,7 @@ using EFT.Interactive;
 using EFT.HealthSystem;
 using EFT.UI;
 using UnityEngine.SceneManagement;
+using static EFT.Player;
 
 namespace AmandsSense
 {
@@ -312,7 +313,7 @@ namespace AmandsSense
             if (__instance != null && __instance.IsYourPlayer)
             {
                 AmandsSenseClass.Player = __instance;
-                AmandsSenseClass.inventoryControllerClass = Traverse.Create(__instance).Field("_inventoryController").GetValue<InventoryControllerClass>();
+                AmandsSenseClass.inventoryControllerClass = Traverse.Create(__instance).Field("_inventoryController").GetValue<PlayerInventoryController>();
                 AmandsSenseClass.Clear();
                 AmandsSenseClass.scene = SceneManager.GetActiveScene().name;
                 AmandsSenseClass.ReloadFiles(true);
@@ -347,7 +348,7 @@ namespace AmandsSense
             return typeof(Player).GetMethod("OnBeenKilledByAggressor", BindingFlags.Instance | BindingFlags.Public);
         }
         [PatchPostfix]
-        private static void PatchPostFix(ref Player __instance, Player aggressor, DamageInfo damageInfo, EBodyPart bodyPart, EDamageType lethalDamageType)
+        private static void PatchPostFix(ref Player __instance, Player aggressor, DamageInfoStruct damageInfo, EBodyPart bodyPart, EDamageType lethalDamageType)
         {
             AmandsSenseClass.DeadPlayers.Add(new SenseDeadPlayerStruct(__instance, aggressor));
         }
